@@ -703,6 +703,10 @@ int dsi_panel_update_backlight(struct dsi_panel *panel, u32 bl_lvl)
 	if (panel->bl_config.bl_inverted_dbv)
 		bl_lvl = (((bl_lvl & 0xff) << 8) | (bl_lvl >> 8));
 
+	if (mi_get_panel_id_by_dsi_panel(panel) == M11A_PANEL_PA) {
+		mi_dsi_panel_set_gamma_update_reg(panel);
+	}
+
 	if (panel->bl_config.bl_dcs_subtype)
 		rc = mipi_dsi_dcs_subtype_set_display_brightness(dsi, bl_lvl,
 						panel->bl_config.bl_dcs_subtype);
@@ -2182,6 +2186,7 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-3d-lut-mode-command",
 	"mi,mdss-dsi-panel-wp-read-command",
 	"mi,mdss-dsi-panel-wp-read-pre-tx-command",
+	"mi,mdss-dsi-auto-update-gamma-command",
 };
 
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
@@ -2284,6 +2289,7 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-3d-lut-mode-command-state",
 	"mi,mdss-dsi-panel-wp-read-command-state",
 	"mi,mdss-dsi-panel-wp-read-pre-tx-command-state",
+	"mi,mdss-dsi-auto-update-gamma-command-state",
 };
 
 const char *cmd_set_update_map[DSI_CMD_UPDATE_MAX] = {
@@ -5514,9 +5520,16 @@ int dsi_panel_switch(struct dsi_panel *panel)
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_TIMING_SWITCH);
 	}
 	if (rc)
-		DSI_ERR("[%s] failed to send DSI_CMD_SET_TIMING_SWITCH cmds, rc=%d\n", panel->name,
-			rc);
+		DSI_ERR("[%s] failed to send DSI_CMD_SET_TIMING_SWITCH cmds, rc=%d\n",
+			panel->name, rc);
+
+	if (mi_get_panel_id(mi_cfg->mi_panel_id) == M11A_PANEL_PA) {
+		mi_dsi_first_timing_switch(panel);
+	}
 	mi_cfg->last_refresh_rate = panel->cur_mode->timing.refresh_rate;
+
+	mi_cfg->last_mode_switch_time = ktime_get();
+	mi_cfg->first_timing_switch = false;
 
 	mutex_unlock(&panel->panel_lock);
 	DISP_TIME_INFO("%s panel: DSI_CMD_SET_TIMING_SWITCH\n", panel->type);
@@ -5578,6 +5591,8 @@ int dsi_panel_enable(struct dsi_panel *panel)
 	}
 	panel->panel_initialized = true;
 	panel->mi_cfg.panel_state = PANEL_STATE_ON;
+	panel->mi_cfg.nedd_auto_update_gamma = false;
+	panel->mi_cfg.first_timing_switch = true;
 
 	if (panel->mi_cfg.dc_feature_enable &&
 	    panel->mi_cfg.feature_val[DISP_FEATURE_DC] == FEATURE_ON) {
@@ -5729,6 +5744,7 @@ int dsi_panel_disable(struct dsi_panel *panel)
 	mi_cfg->aod_to_normal_status = false;
 	mi_cfg->doze_brightness = DOZE_TO_NORMAL;
 	panel->mi_cfg.bl_enable = true;
+	mi_cfg->nedd_auto_update_gamma = false;
 
 	mutex_unlock(&panel->panel_lock);
 	DISP_TIME_INFO("%s panel: DSI_CMD_SET_OFF\n", panel->type);
