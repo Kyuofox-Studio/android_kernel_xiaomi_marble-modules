@@ -408,7 +408,7 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 	rc = cam_packet_util_validate_cmd_desc(cmd_desc);
 	if (rc) {
 		CAM_ERR(CAM_SENSOR, "Invalid cmd desc ret: %d", rc);
-		return rc;
+		goto end;
 	}
 
 	rc = cam_sensor_i2c_command_parser(&s_ctrl->io_master_info,
@@ -436,8 +436,6 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 			csl_packet->header.request_id;
 	}
 
-	cam_mem_put_cpu_buf(config.packet_handle);
-	return rc;
 end:
 	cam_common_mem_free(csl_packet);
 put_ref:
@@ -737,7 +735,7 @@ int32_t cam_handle_mem_ptr(uint64_t handle, uint32_t cmd,
 	rc = cam_packet_util_validate_cmd_desc(cmd_desc);
 	if (rc) {
 		CAM_ERR(CAM_SENSOR, "Invalid cmd desc ret: %d", rc);
-		return rc;
+		goto end;
 	}
 
 	probe_ver = pkt->header.op_code & 0xFFFFFF;
@@ -746,7 +744,7 @@ int32_t cam_handle_mem_ptr(uint64_t handle, uint32_t cmd,
 	for (i = 0; i < pkt->num_cmd_buf; i++) {
 		rc = cam_packet_util_validate_cmd_desc(&cmd_desc[i]);
 		if (rc)
-			return rc;
+			goto end;
 
 		if (!(cmd_desc[i].length))
 			continue;
@@ -788,8 +786,6 @@ int32_t cam_handle_mem_ptr(uint64_t handle, uint32_t cmd,
 		cam_mem_put_cpu_buf(cmd_desc[i].mem_handle);
 	}
 
-	cam_mem_put_cpu_buf(handle);
-	return rc;
 end:
 	cam_common_mem_free(pkt);
 put_ref:
