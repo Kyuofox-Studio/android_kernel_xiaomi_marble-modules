@@ -26,6 +26,7 @@
 #include "cam_cdm_util.h"
 #include "cam_common_util.h"
 #include "cam_subdev.h"
+#include "cam_csiphy_core.h"
 
 /* CSIPHY TPG VC/DT values */
 #define CAM_IFE_CPHY_TPG_VC_VAL                         0x0
@@ -35,7 +36,7 @@
 #define CAM_IFE_CSID_TIMEOUT_SLEEP_US                  1000
 #define CAM_IFE_CSID_TIMEOUT_ALL_US                    100000
 
-#define CAM_IFE_CSID_RESET_TIMEOUT_MS                  100
+#define CAM_IFE_CSID_RESET_TIMEOUT_MS 600
 
 /*
  * Constant Factors needed to change QTimer ticks to nanoseconds
@@ -1068,6 +1069,18 @@ static int cam_ife_csid_ver2_rx_err_bottom_half(
 		}
 
 		if (irq_status & IFE_CSID_VER2_RX_ERROR_CRC) {
+			const char *name = soc_info->dev->of_node->name;
+			size_t name_len = strlen(name);
+			u8 phy_index;
+
+			if (name_len && !kstrtou8(name + name_len - 1, 0, &phy_index) &&
+			    phy_index < CAM_PHY_MAX_CTRL_NO) {
+				u8 *choice = &soc_info->phy_cfg_current_index[phy_index];
+
+				if (*choice < 0xf)
+					(*choice)++;
+				XM_MIPI_KMD_SET_CTRL_FLAG_VAL(phy_index, *choice);
+			}
 			event_type |= CAM_ISP_HW_ERROR_CSID_PKT_PAYLOAD_CORRUPTED;
 			long_pkt_ftr_val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 				csi2_reg->captured_long_pkt_ftr_addr);
@@ -4163,7 +4176,9 @@ static int cam_ife_csid_ver2_enable_hw(
 		rc = -EINVAL;
 		goto unsubscribe_top_err;
 	}
-
+#if IS_ENABLED(ZIZHAN_CAMERA)
+	memset(&csid_hw->timestamp, 0, sizeof(struct cam_ife_csid_timestamp));
+#endif
 	csid_hw->flags.device_enabled = true;
 	csid_hw->flags.fatal_err_detected = false;
 	CAM_DBG(CAM_ISP, "CSID:%d CSID HW version: 0x%x",

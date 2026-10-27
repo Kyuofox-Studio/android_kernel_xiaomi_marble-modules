@@ -13,6 +13,22 @@
 #include <cam_req_mgr_util.h>
 #include <cam_io_util.h>
 
+extern uint64_t xm_mipi_kmd_setting;
+#define XM_MIPI_KMD_CTRL_NO ((xm_mipi_kmd_setting >> 56) & (uint64_t)0xff)
+#define XM_MIPI_KMD_GET_CTRL_FLAG(ctl_no) ((XM_MIPI_KMD_CTRL_NO >> (ctl_no)) & 1)
+#define XM_MIPI_KMD_GET_CTRL_VAL(ctl_no) ((xm_mipi_kmd_setting >> ((uint64_t)(ctl_no) << 2)) & 0x0f)
+#define XM_MIPI_KMD_CLEAR_CTRL_VAL(ctl_no) \
+	(xm_mipi_kmd_setting &= ~((uint64_t)0x0f << ((ctl_no) << 2)))
+#define XM_MIPI_KMD_SET_CTRL_FLAG(ctl_no) (xm_mipi_kmd_setting |= ((uint64_t)1 << ((ctl_no) + 56)))
+#define XM_MIPI_KMD_SET_CTRL_VAL(ctl_no, val) \
+	(xm_mipi_kmd_setting |= (((uint64_t)(val) & 0x0f) << ((ctl_no) << 2)))
+#define XM_MIPI_KMD_SET_CTRL_FLAG_VAL(ctl_no, val)     \
+	do {                                           \
+		XM_MIPI_KMD_CLEAR_CTRL_VAL(ctl_no);    \
+		XM_MIPI_KMD_SET_CTRL_FLAG(ctl_no);     \
+		XM_MIPI_KMD_SET_CTRL_VAL(ctl_no, val); \
+	} while (0)
+
 /**
  * @csiphy_dev: CSIPhy device structure
  *

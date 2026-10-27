@@ -5,6 +5,7 @@
  */
 
 #include <linux/device.h>
+#include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -17,6 +18,8 @@
 #include "cam_cpas_hw_intf.h"
 #include "cam_cpas_hw.h"
 #include "cam_cpas_soc.h"
+
+#define LLCC_RETRY 5
 
 static uint cpas_dump;
 module_param(cpas_dump, uint, 0644);
@@ -706,6 +709,7 @@ static int cam_cpas_parse_sys_cache_uids(
 {
 	enum cam_sys_cache_config_types type = CAM_LLCC_MAX;
 	int num_caches, i, rc;
+	int m = 0;
 	uint32_t scid;
 
 	soc_private->llcc_info = NULL;
@@ -760,11 +764,23 @@ static int cam_cpas_parse_sys_cache_uids(
 			llcc_slice_getd(soc_private->llcc_info[i].uid);
 
 		if (IS_ERR_OR_NULL(soc_private->llcc_info[i].slic_desc)) {
-			CAM_ERR(CAM_CPAS,
-				"Failed to get slice desc for uid %u",
+			CAM_ERR(CAM_CPAS, "Failed to get slice desc for uid %u, waiting for LLCC",
 				soc_private->llcc_info[i].uid);
-			rc = -EINVAL;
-			goto end;
+			do {
+				msleep(1000);
+				soc_private->llcc_info[i].slic_desc =
+					llcc_slice_getd(soc_private->llcc_info[i].uid);
+				if (!IS_ERR_OR_NULL(soc_private->llcc_info[i].slic_desc))
+					break;
+				CAM_ERR(CAM_CPAS, "Failed to get slice desc, retry %d", m);
+				m++;
+			} while (m < LLCC_RETRY);
+
+			if (m >= LLCC_RETRY) {
+				CAM_ERR(CAM_CPAS, "Failed to get slice desc after retries");
+				rc = -EINVAL;
+				goto end;
+			}
 		}
 
 		scid = llcc_get_slice_id(soc_private->llcc_info[i].slic_desc);

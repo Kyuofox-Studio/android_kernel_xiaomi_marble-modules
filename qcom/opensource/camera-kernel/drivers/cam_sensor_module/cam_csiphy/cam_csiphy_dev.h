@@ -200,12 +200,16 @@ struct csiphy_cphy_per_lane_info {
  * @bandwidth               : max bandwidth supported by this reg settings
  * @data_rate_reg_array_size: number of reg value pairs in the array
  * @csiphy_data_rate_regs   : array of data rate specific reg value pairs
+ * @this_setting_max_choice: number of alternatives for this bandwidth
+ * @this_setting_current_choice: index of this alternative
  */
 struct data_rate_reg_info_t {
 	uint64_t bandwidth;
 	ssize_t  data_rate_reg_array_size;
 	struct   csiphy_cphy_per_lane_info per_lane_info[
 			CAM_CSIPHY_MAX_CPHY_LANES];
+	uint32_t this_setting_max_choice;
+	uint32_t this_setting_current_choice;
 };
 
 /**
@@ -375,6 +379,8 @@ struct csiphy_device {
 	bool                           en_full_phy_reg_dump;
 	bool                           skip_aux_settings;
 	uint16_t                       preamble_enable;
+	char phy_dts_name[50];
+	uint8_t device_has_customized;
 };
 
 /**
