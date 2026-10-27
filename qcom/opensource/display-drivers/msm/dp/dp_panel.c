@@ -457,7 +457,6 @@ static void dp_panel_update_tu_timings(struct dp_tu_calc_input *in,
 	tu->pclk_fp = pclk_dsc_fp;
 	tu->lwidth_fp = dwidth_dsc_fp;
 	tu->hbp_relative_to_pclk_fp = hbp_dsc_fp;
-
 fec_check:
 	if (in->fec_en) {
 		temp1_fp = drm_fixp_from_fraction(976, 1000); /* 0.976 */
@@ -1700,7 +1699,6 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel, bool multi_func)
 	if (dfp_count > DP_MAX_DS_PORT_COUNT)
 		DP_DEBUG("DS port count %d greater that max (%d) supported\n",
 			dfp_count, DP_MAX_DS_PORT_COUNT);
-
 end:
 	return rc;
 }
@@ -1883,7 +1881,6 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 		DP_ERR("panel edid read failed, set failsafe mode\n");
 		return rc;
 	}
-
 skip_edid:
 	dp_panel->widebus_en = panel->parser->has_widebus;
 	dp_panel->dsc_feature_enable = panel->parser->dsc_feature_enable;
@@ -2621,7 +2618,6 @@ static int dp_panel_set_colorspace(struct dp_panel *dp_panel,
 		rc =  panel->catalog->set_colorspace(panel->catalog,
 			  panel->vsc_supported);
 	}
-
 end:
 	return rc;
 }
@@ -2937,7 +2933,6 @@ static bool dp_panel_read_mst_cap(struct dp_panel *dp_panel)
 	}
 
 	mst_cap = (dpcd & DP_MST_CAP) ? true : false;
-
 end:
 	DP_DEBUG("dp mst-cap: %d\n", mst_cap);
 
@@ -3019,7 +3014,7 @@ static void dp_panel_convert_to_dp_mode(struct dp_panel *dp_panel,
 			return;
 		}
 
-		rc = sde_dsc_populate_dsc_config(&comp_info->dsc_info.config, 0);
+		rc = sde_dsc_populate_dsc_config(&comp_info->dsc_info.config, 0, 0);
 		if (rc) {
 			DP_DEBUG("failed populating dsc params \n");
 			return;

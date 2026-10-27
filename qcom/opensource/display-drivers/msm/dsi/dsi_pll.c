@@ -100,14 +100,12 @@ static void dsi_pll_parse_dfps(struct platform_device *pdev,
 
 	/* memcopy complete dfps structure from kernel virtual memory */
 	memcpy_fromio(pll_res->dfps, trim_codes, sizeof(struct dfps_info));
-
 mem_err:
 	if (trim_codes)
 		memunmap(trim_codes);
 
 	/* free the dfps memory here */
 	dsi_pll_free_bootmem(offsets[0], offsets[1]);
-
 node_err:
 	if (pnode)
 		of_node_put(pnode);
@@ -228,7 +226,6 @@ static int dsi_pll_parse_dfps_from_dt(struct platform_device *pdev,
 	}
 
 	pll_res->dfps->vco_rate_cnt = vco_rate_cnt;
-
 err:
 	kfree(pll_codes_info);
 
@@ -244,6 +241,7 @@ int dsi_pll_init(struct platform_device *pdev, struct dsi_pll_resource **pll)
 	const char *label;
 	struct dsi_pll_resource *pll_res = NULL;
 	bool in_trusted_vm = false;
+	bool ssc_disable;
 
 	if (!pdev->dev.of_node) {
 		pr_err("Invalid DSI PHY node\n");
@@ -284,6 +282,13 @@ int dsi_pll_init(struct platform_device *pdev, struct dsi_pll_resource **pll)
 
 	pll_res->ssc_en = of_property_read_bool(pdev->dev.of_node,
 						"qcom,dsi-pll-ssc-en");
+
+	ssc_disable = of_property_read_bool(pdev->dev.of_node, "qcom,dsi-pll-ssc-disable");
+
+	if (pll_res->ssc_en == true && ssc_disable == true) {
+		pll_res->ssc_en = false;
+		pr_info("ssc disable due to qcom,dsi-pll-ssc-disable is defined\n");
+	}
 
 	if (pll_res->ssc_en) {
 		DSI_PLL_INFO(pll_res, "PLL SSC enabled\n");

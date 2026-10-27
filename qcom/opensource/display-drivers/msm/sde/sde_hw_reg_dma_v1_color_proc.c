@@ -571,7 +571,6 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
 		goto exit;
 	}
-
 exit:
 	kvfree(data);
 	/* update flush bit */
@@ -1229,7 +1228,6 @@ int reg_dmav1_setup_rc_datav1(struct sde_hw_dspp *ctx, void *cfg)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
 		goto exit;
 	}
-
 exit:
 	kvfree(data);
 	return rc;
@@ -1404,7 +1402,6 @@ void reg_dmav1_setup_dspp_pcc_common(struct sde_hw_dspp *ctx, void *cfg)
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
-
 exit:
 	kvfree(data);
 
@@ -1424,7 +1421,6 @@ void reg_dmav1_setup_dspp_pccv4(struct sde_hw_dspp *ctx, void *cfg)
 		}
 		//Flags unsupported for PCCv4
 		pcc_cfg = hw_cfg->payload;
-		pcc_cfg->flags = 0;
 	}
 	reg_dmav1_setup_dspp_pcc_common(ctx, cfg);
 }
@@ -3242,7 +3238,6 @@ void reg_dmav1_setup_vig_qseed3(struct sde_hw_pipe *ctx,
 			return;
 		}
 	}
-
 end:
 	if (sspp->layout.format) {
 		if (!SDE_FORMAT_IS_DX(sspp->layout.format))
@@ -4158,7 +4153,6 @@ void reg_dmav2_setup_dspp_igcv4(struct sde_hw_dspp *ctx, void *cfg)
 
 	LOG_FEATURE_ON;
 	_perform_sbdma_kickoff(ctx, hw_cfg, dma_ops, blk, IGC);
-
 exit:
 	kvfree(data);
 }
@@ -4280,7 +4274,7 @@ void reg_dmav2_setup_dspp_3d_gamutv43(struct sde_hw_dspp *ctx, void *cfg)
 	if (len % transfer_size_bytes)
 		len = len + (transfer_size_bytes - len % transfer_size_bytes);
 
-	data = kvzalloc(len, GFP_KERNEL);
+	data = vzalloc(len);
 	if (!data)
 		return;
 
@@ -4354,9 +4348,8 @@ void reg_dmav2_setup_dspp_3d_gamutv43(struct sde_hw_dspp *ctx, void *cfg)
 
 	LOG_FEATURE_ON;
 	_perform_sbdma_kickoff(ctx, hw_cfg, dma_ops, blk, GAMUT);
-
 exit:
-	kvfree(data);
+	vfree(data);
 }
 
 void reg_dmav2_setup_vig_gamutv61(struct sde_hw_pipe *ctx, void *cfg)
@@ -4497,7 +4490,6 @@ void reg_dmav2_setup_vig_gamutv61(struct sde_hw_pipe *ctx, void *cfg)
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
-
 exit:
 	kvfree(data);
 }
@@ -4762,7 +4754,6 @@ void reg_dmav1_setup_spr_init_cfgv1(struct sde_hw_dspp *ctx, void *cfg)
 			&dma_write_cfg, dma_ops);
 	if (rc)
 		return;
-
 bypass:
 	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl,
 			dspp_buf[SPR_INIT][ctx->idx],
@@ -5194,7 +5185,6 @@ static int __reg_dmav1_setup_demurav1_cfg1(struct sde_hw_dspp *ctx,
 			goto quit;
 		}
 	}
-
 quit:
 	kvfree(cfg1_data);
 	return rc;

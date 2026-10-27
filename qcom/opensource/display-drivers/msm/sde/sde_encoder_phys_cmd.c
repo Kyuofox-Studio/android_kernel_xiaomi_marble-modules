@@ -10,6 +10,7 @@
 #include "sde_core_irq.h"
 #include "sde_formats.h"
 #include "sde_trace.h"
+#include "mi_sde_encoder.h"
 
 #define SDE_DEBUG_CMDENC(e, fmt, ...) SDE_DEBUG("enc%d intf%d " fmt, \
 		(e) && (e)->base.parent ? \
@@ -284,6 +285,8 @@ static void sde_encoder_phys_cmd_te_rd_ptr_irq(void *arg, int irq_idx)
 
 	if (!phys_enc || !phys_enc->hw_pp || !phys_enc->hw_intf)
 		return;
+
+	mi_sde_encoder_save_vsync_info(phys_enc);
 
 	SDE_ATRACE_BEGIN("rd_ptr_irq");
 	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
@@ -573,7 +576,6 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 
 	/* request a ctl reset before the next kickoff */
 	phys_enc->enable_state = SDE_ENC_ERR_NEEDS_HW_RESET;
-
 exit:
 	if (phys_enc->parent_ops.handle_frame_done) {
 		spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
@@ -663,7 +665,6 @@ static int _sde_encoder_phys_cmd_poll_write_pointer_started(
 				phys_enc->hw_intf->idx - INTF_0, timeout_us, ret);
 		SDE_DBG_DUMP(SDE_DBG_BUILT_IN_ALL, "panic");
 	}
-
 end:
 	return ret;
 }
@@ -866,7 +867,6 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 		if (ret)
 			atomic_inc_return(&phys_enc->vblank_refcount);
 	}
-
 end:
 	mutex_unlock(phys_enc->vblank_ctl_lock);
 	if (ret) {
@@ -1015,7 +1015,6 @@ static int _get_tearcheck_threshold(struct sde_encoder_phys *phys_enc)
 				info->jitter_denom, yres, extra_time_ns, default_line_time_ns,
 				adjusted_threshold_lines);
 	}
-
 exit:
 
 	return adjusted_threshold_lines;
@@ -1200,7 +1199,6 @@ static void sde_encoder_phys_cmd_enable_helper(
 		goto skip_flush;
 
 	_sde_encoder_phys_cmd_update_flush_mask(phys_enc);
-
 skip_flush:
 	return;
 }
@@ -1705,7 +1703,6 @@ static int sde_encoder_phys_cmd_wait_for_commit_done(
 		goto wait_for_idle;
 
 	return rc;
-
 wait_for_idle:
 	pending_cnt = atomic_read(&phys_enc->pending_kickoff_cnt);
 	for (i = 0; i < pending_cnt; i++)
@@ -2145,7 +2142,6 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 	SDE_DEBUG_CMDENC(cmd_enc, "created\n");
 
 	return phys_enc;
-
 fail_mdp_init:
 	kfree(cmd_enc);
 fail:

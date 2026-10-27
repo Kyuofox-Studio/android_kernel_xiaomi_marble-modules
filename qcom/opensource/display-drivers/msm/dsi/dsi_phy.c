@@ -215,7 +215,6 @@ static int dsi_phy_supplies_init(struct platform_device *pdev,
 	}
 
 	return rc;
-
 error_digital_put:
 	regs = &phy->pwr_info.digital;
 	for (i = 0; i < regs->count; i++)
@@ -464,7 +463,6 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, dsi_phy);
 	DSI_PHY_INFO(dsi_phy, "Probe successful\n");
 	return 0;
-
 fail_settings:
 	(void)dsi_phy_settings_deinit(dsi_phy);
 fail_supplies:
@@ -982,7 +980,6 @@ int dsi_phy_set_ulps(struct msm_dsi_phy *phy, struct dsi_host_config *config,
 		goto error;
 	}
 	DSI_PHY_DBG(phy, "ULPS state = %d\n", enable);
-
 error:
 	mutex_unlock(&phy->phy_lock);
 	return rc;
@@ -1025,6 +1022,7 @@ int dsi_phy_enable(struct msm_dsi_phy *phy,
 	phy->dst_format = config->common_config.dst_format;
 	phy->cfg.pll_source = pll_source;
 	phy->cfg.bit_clk_rate_hz = config->bit_clk_rate_hz;
+	phy->cfg.clk_strength = config->common_config.clk_strength;
 
 	/**
 	 * If PHY timing parameters are not present in panel dtsi file,
@@ -1045,7 +1043,6 @@ int dsi_phy_enable(struct msm_dsi_phy *phy,
 		DSI_PHY_DBG(phy, "cont splash not enabled, phy enable required\n");
 	}
 	phy->dsi_phy_state = DSI_PHY_ENGINE_ON;
-
 error:
 	mutex_unlock(&phy->phy_lock);
 

@@ -792,7 +792,6 @@ static int msm_drm_device_init(struct platform_device *pdev,
 			SDE_POWER_HANDLE_CONT_SPLASH_BUS_IB_QUOTA);
 
 	return ret;
-
 pm_runtime_error:
 	sde_dbg_destroy();
 dbg_init_fail:
@@ -928,7 +927,6 @@ static int msm_drm_component_init(struct device *dev)
 	drm_kms_helper_poll_init(ddev);
 
 	return 0;
-
 fail:
 	msm_drm_uninit(dev);
 	return ret;
@@ -1242,7 +1240,6 @@ static int msm_ioctl_gem_madvise(struct drm_device *dev, void *data,
 	}
 
 	drm_gem_object_put(obj);
-
 unlock:
 	mutex_unlock(&dev->struct_mutex);
 	return ret;
@@ -2162,6 +2159,30 @@ int msm_get_dsc_count(struct msm_drm_private *priv,
 	}
 
 	return funcs->get_dsc_count(priv->kms, hdisplay, num_dsc);
+}
+
+struct drm_connector_state *_msm_get_conn_state(struct drm_crtc_state *crtc_state)
+{
+	struct drm_connector *conn;
+	struct drm_connector_state *conn_state = NULL;
+	struct drm_device *dev;
+	struct drm_connector_list_iter conn_iter;
+
+	if (!crtc_state || !crtc_state->crtc)
+		return NULL;
+
+	dev = crtc_state->crtc->dev;
+	drm_connector_list_iter_begin(dev, &conn_iter);
+
+	drm_for_each_connector_iter (conn, &conn_iter) {
+		if (drm_connector_mask(conn) & crtc_state->connector_mask) {
+			if (!(conn_state && conn->connector_type == DRM_MODE_CONNECTOR_VIRTUAL))
+				conn_state = conn->state;
+		}
+	}
+
+	drm_connector_list_iter_end(&conn_iter);
+	return conn_state;
 }
 
 static int msm_drm_bind(struct device *dev)

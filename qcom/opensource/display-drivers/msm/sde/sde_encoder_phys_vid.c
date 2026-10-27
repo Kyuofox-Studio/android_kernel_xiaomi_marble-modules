@@ -11,6 +11,9 @@
 #include "sde_formats.h"
 #include "dsi_display.h"
 #include "sde_trace.h"
+#include "mi_sde_encoder.h"
+#include "mi_dsi_display.h"
+#include "mi_panel_id.h"
 
 #define SDE_DEBUG_VIDENC(e, fmt, ...) SDE_DEBUG("enc%d intf%d " fmt, \
 		(e) && (e)->base.parent ? \
@@ -50,6 +53,7 @@ static void drm_mode_to_intf_timing_params(
 	const struct sde_encoder_phys *phys_enc = &vid_enc->base;
 	bool fsc_mode = false;
 	struct sde_connector_state *c_state = NULL;
+	struct dsi_display *display = NULL;
 
 	if (phys_enc->connector && phys_enc->connector->state) {
 		c_state = to_sde_connector_state(phys_enc->connector->state);
@@ -102,7 +106,15 @@ static void drm_mode_to_intf_timing_params(
 	timing->hsync_polarity = (mode->flags & DRM_MODE_FLAG_NHSYNC) ? 1 : 0;
 	timing->vsync_polarity = (mode->flags & DRM_MODE_FLAG_NVSYNC) ? 1 : 0;
 	timing->border_clr = 0;
-	timing->underflow_clr = 0xff;
+	display = mi_get_primary_dsi_display();
+	if (display && (mi_get_panel_id_by_dsi_panel(display->panel) == M16T_PANEL_PA ||
+			mi_get_panel_id_by_dsi_panel(display->panel) == N16_PANEL_PA ||
+			mi_get_panel_id_by_dsi_panel(display->panel) == N16_PANEL_PB)) {
+		timing->underflow_clr = 0;
+	} else {
+		timing->underflow_clr = 0xff;
+	}
+
 	timing->hsync_skew = mode->hskew;
 	timing->v_front_porch_fixed = vid_enc->base.vfp_cached;
 	timing->vrefresh = drm_mode_vrefresh(mode);
@@ -486,7 +498,6 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 	if (phys_enc->hw_intf->cap->type == INTF_DSI)
 		programmable_fetch_config(phys_enc, &timing_params);
-
 exit:
 	if (phys_enc->parent_ops.get_qsync_fps)
 		phys_enc->parent_ops.get_qsync_fps(
@@ -518,6 +529,8 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 	if (!hw_ctl)
 		return;
 
+	mi_sde_encoder_save_vsync_info(phys_enc);
+
 	SDE_ATRACE_BEGIN("vblank_irq");
 
 	/*
@@ -545,7 +558,6 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 			SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE |
 			SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE;
 	}
-
 not_flushed:
 	if (hw_ctl && hw_ctl->ops.get_reset)
 		reset_status = hw_ctl->ops.get_reset(hw_ctl);
@@ -582,6 +594,8 @@ static void sde_encoder_phys_vid_underrun_irq(void *arg, int irq_idx)
 
 	if (!phys_enc)
 		return;
+
+	SDE_ERROR("underrun_irq, call sde_encoder_underrun_callback()\n");
 
 	if (phys_enc->parent_ops.handle_underrun_virt)
 		phys_enc->parent_ops.handle_underrun_virt(phys_enc->parent,
@@ -621,6 +635,8 @@ static void sde_encoder_phys_vid_cont_splash_mode_set(
 	phys_enc->enable_state = SDE_ENC_ENABLED;
 
 	_sde_encoder_phys_vid_setup_irq_hw_idx(phys_enc);
+
+	phys_enc->kickoff_timeout_ms = sde_encoder_helper_get_kickoff_timeout_ms(phys_enc->parent);
 }
 
 static void sde_encoder_phys_vid_mode_set(
@@ -732,7 +748,6 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 		if (ret)
 			atomic_inc_return(&phys_enc->vblank_refcount);
 	}
-
 end:
 	if (ret) {
 		SDE_ERROR_VIDENC(vid_enc,
@@ -849,7 +864,6 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 		phys_enc->comp_type == MSM_DISPLAY_COMPRESSION_DSC &&
 		phys_enc->comp_ratio)
 		ctl->ops.update_bitmask(ctl, SDE_HW_FLUSH_PERIPH, intf->idx, 1);
-
 skip_flush:
 	SDE_DEBUG_VIDENC(vid_enc, "update pending flush ctl %d intf %d\n",
 		ctl->idx - CTL_0, intf->idx);
@@ -1474,7 +1488,6 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 	SDE_DEBUG_VIDENC(vid_enc, "created intf idx:%d\n", p->intf_idx);
 
 	return phys_enc;
-
 fail:
 	SDE_ERROR("failed to create encoder\n");
 	if (vid_enc)

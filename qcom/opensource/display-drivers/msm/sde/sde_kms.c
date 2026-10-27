@@ -54,6 +54,7 @@
 #include "sde_reg_dma.h"
 #include "sde_connector.h"
 #include "sde_vm.h"
+#include "mi_disp_print.h"
 
 #include <linux/qcom_scm.h>
 #include <linux/qcom-iommu-util.h>
@@ -66,6 +67,7 @@
 #define CREATE_TRACE_POINTS
 #include "sde_trace.h"
 
+#include "mi_dsi_display.h"
 /* defines for secure channel call */
 #define MEM_PROTECT_SD_CTRL_SWITCH 0x18
 #define MDP_DEVICE_ID            0x1A
@@ -366,7 +368,6 @@ static int _sde_kms_scm_call(struct sde_kms *sde_kms, int vmid)
 
 	dma_unmap_single(&dummy, dma_handle,
 				num_sids * sizeof(uint32_t), DMA_TO_DEVICE);
-
 map_error:
 	if (qtee_en)
 		qtee_shmbridge_free_shm(&shm);
@@ -397,7 +398,6 @@ static int _sde_kms_detach_all_cb(struct sde_kms *sde_kms, u32 vmid)
 	}
 
 	return 0;
-
 scm_error:
 	sde_kms_mmu_attach(sde_kms, false);
 mmu_error:
@@ -427,7 +427,6 @@ static int _sde_kms_attach_all_cb(struct sde_kms *sde_kms, u32 vmid,
 	}
 
 	return 0;
-
 mmu_error:
 	_sde_kms_scm_call(sde_kms, old_vmid);
 scm_error:
@@ -456,7 +455,6 @@ static int _sde_kms_detach_sec_cb(struct sde_kms *sde_kms, int vmid)
 	}
 
 	return 0;
-
 scm_error:
 	sde_kms_mmu_attach(sde_kms, true);
 mmu_error:
@@ -485,7 +483,6 @@ static int _sde_kms_attach_sec_cb(struct sde_kms *sde_kms, u32 vmid,
 	}
 
 	return 0;
-
 mmu_error:
 	_sde_kms_scm_call(sde_kms, old_vmid);
 scm_error:
@@ -605,7 +602,6 @@ static int _sde_kms_secure_ctrl(struct sde_kms *sde_kms, struct drm_crtc *crtc,
 		if (ret)
 			goto end;
 	}
-
 end:
 	smmu_state->transition_error = false;
 
@@ -740,7 +736,6 @@ static int sde_kms_prepare_secure_transition(struct msm_kms *kms,
 		SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FUNC_EXIT);
 		SDE_DEBUG("secure operations completed\n");
 	}
-
 no_ops:
 	return 0;
 }
@@ -757,12 +752,12 @@ static int _sde_kms_release_shared_buffer(unsigned int mem_addr,
 		SDE_ERROR("invalid params\n");
 		return -EINVAL;
 	}
-
-	/* leave ramdump memory only if base address matches */
-	if (ramdump_base == mem_addr &&
-			ramdump_buffer_size <= splash_buffer_size) {
-		mem_addr +=  ramdump_buffer_size;
-		splash_buffer_size -= ramdump_buffer_size;
+	if (mi_dsi_display_ramdump_support()) {
+		/* leave ramdump memory only if base address matches */
+		if (ramdump_base == mem_addr && ramdump_buffer_size <= splash_buffer_size) {
+			mem_addr += ramdump_buffer_size;
+			splash_buffer_size -= ramdump_buffer_size;
+		}
 	}
 
 	pfn_start = mem_addr >> PAGE_SHIFT;
@@ -957,6 +952,8 @@ static void _sde_kms_drm_check_dpms(struct drm_atomic_state *old_state,
 	struct sde_connector *c_conn;
 	int i, old_mode, new_mode, old_fps, new_fps;
 	enum panel_event_notifier_tag panel_type;
+	ktime_t start_ktime;
+	s64 elapsed_us;
 
 	for_each_old_connector_in_state(old_state, connector,
 			old_conn_state, i) {
@@ -965,14 +962,20 @@ static void _sde_kms_drm_check_dpms(struct drm_atomic_state *old_state,
 		if (!crtc)
 			continue;
 
-		new_fps = drm_mode_vrefresh(&crtc->state->mode);
+		if (crtc->state->mode.hskew)
+			new_fps = crtc->state->mode.hskew;
+		else
+			new_fps = drm_mode_vrefresh(&crtc->state->mode);
 		new_mode = _sde_kms_get_blank(crtc->state, connector->state);
 
 		if (old_conn_state->crtc) {
 			old_crtc_state = drm_atomic_get_existing_crtc_state(
 					old_state, old_conn_state->crtc);
 
-			old_fps = drm_mode_vrefresh(&old_crtc_state->mode);
+			if (old_crtc_state->mode.hskew)
+				old_fps = old_crtc_state->mode.hskew;
+			else
+				old_fps = drm_mode_vrefresh(&old_crtc_state->mode);
 			old_mode = _sde_kms_get_blank(old_crtc_state,
 							old_conn_state);
 		} else {
@@ -980,7 +983,7 @@ static void _sde_kms_drm_check_dpms(struct drm_atomic_state *old_state,
 			old_mode = DRM_PANEL_EVENT_BLANK;
 		}
 
-		if ((old_mode != new_mode) || (old_fps != new_fps)) {
+		if ((old_mode != new_mode) || ((old_fps != new_fps) && (old_fps != 0))) {
 			c_conn = to_sde_connector(connector);
 			SDE_EVT32(old_mode, new_mode, old_fps, new_fps,
 				c_conn->panel, crtc->state->active,
@@ -1009,8 +1012,15 @@ static void _sde_kms_drm_check_dpms(struct drm_atomic_state *old_state,
 			notification.notif_data.old_fps = old_fps;
 			notification.notif_data.new_fps = new_fps;
 			notification.notif_data.early_trigger = is_pre_commit;
+			start_ktime = ktime_get();
+			SDE_ATRACE_BEGIN("panel_event_notification_trigger");
 			panel_event_notification_trigger(panel_type,
 					&notification);
+			SDE_ATRACE_END("panel_event_notification_trigger");
+			elapsed_us = ktime_us_delta(ktime_get(), start_ktime);
+			DISP_TIME_INFO("%s early_trigger:%d (power mode %d->%d, fps %d->%d) - %d.%d(ms)\n",
+				       c_conn->name, is_pre_commit, old_mode, new_mode, old_fps,
+				       new_fps, (int)(elapsed_us / 1000), (int)(elapsed_us % 1000));
 		}
 	}
 
@@ -1203,7 +1213,6 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 
 	if (vm_ops->vm_prepare_commit)
 		vm_ops->vm_prepare_commit(sde_kms, state);
-
 end_vm:
 	_sde_kms_drm_check_dpms(state, true);
 end:
@@ -1484,7 +1493,6 @@ int sde_kms_vm_primary_post_commit(struct sde_kms *sde_kms,
 	sde_vm_unlock(sde_kms);
 
 	_sde_crtc_vm_release_notify(crtc);
-
 exit:
 	return rc;
 }
@@ -1498,6 +1506,7 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	struct drm_crtc_state *old_crtc_state;
 	struct drm_connector *connector;
 	struct drm_connector_state *old_conn_state;
+	struct drm_encoder *drm_enc;
 	struct msm_display_conn_params params;
 	struct sde_vm_ops *vm_ops;
 	int i, rc = 0;
@@ -1519,6 +1528,13 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 
 	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		sde_crtc_complete_commit(crtc, old_crtc_state);
+
+		drm_for_each_encoder_mask (drm_enc, crtc->dev, old_crtc_state->encoder_mask) {
+			if (sde_encoder_in_clone_mode(drm_enc))
+				continue;
+
+			sde_encoder_update_complete_commit(drm_enc, old_crtc_state);
+		}
 
 		/* complete secure transitions if any */
 		if (sde_kms->smmu_state.transition_type == POST_COMMIT)
@@ -1623,7 +1639,7 @@ static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 
 	sde_crtc_static_cache_read_kickoff(crtc);
 
-	SDE_ATRACE_END("sde_ksm_wait_for_commit_done");
+	SDE_ATRACE_END("sde_kms_wait_for_commit_done");
 }
 
 static void sde_kms_prepare_fence(struct msm_kms *kms,
@@ -1712,18 +1728,15 @@ static int _sde_kms_get_displays(struct sde_kms *sde_kms)
 		sde_kms->dp_stream_count = dp_display_get_num_of_streams();
 	}
 	return 0;
-
 exit_deinit_dp:
 	kfree(sde_kms->dp_displays);
 	sde_kms->dp_stream_count = 0;
 	sde_kms->dp_display_count = 0;
 	sde_kms->dp_displays = NULL;
-
 exit_deinit_wb:
 	kfree(sde_kms->wb_displays);
 	sde_kms->wb_display_count = 0;
 	sde_kms->wb_displays = NULL;
-
 exit_deinit_dsi:
 	kfree(sde_kms->dsi_displays);
 	sde_kms->dsi_display_count = 0;
@@ -2578,7 +2591,6 @@ static int _sde_kms_remove_fbs(struct sde_kms *sde_kms, struct drm_file *file,
 	SDE_EVT32(state, crtc_mask);
 	SDE_DEBUG("null commit after removing all the pipes\n");
 	ret = drm_atomic_commit(state);
-
 error:
 	if (ret) {
 		/*
@@ -2606,7 +2618,6 @@ error:
 		if (!ret && crtc_mask & drm_crtc_mask(crtc))
 			sde_kms_cancel_delayed_work(crtc);
 	}
-
 end:
 	return ret;
 }
@@ -2650,7 +2661,6 @@ retry:
 		drm_atomic_state_clear(state);
 		drm_modeset_backoff(&ctx);
 	}
-
 end:
 	if (state)
 		drm_atomic_state_put(state);
@@ -2755,7 +2765,6 @@ static void sde_kms_lastclose(struct msm_kms *kms)
 
 	state->acquire_ctx = &ctx;
 	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
-
 retry:
 	ret = drm_modeset_lock_all_ctx(dev, &ctx);
 	if (ret)
@@ -2780,7 +2789,6 @@ out_ctx:
 
 	SDE_EVT32(ret, SDE_EVTLOG_FUNC_EXIT);
 	return;
-
 backoff:
 	drm_atomic_state_clear(state);
 	drm_modeset_backoff(&ctx);
@@ -3178,7 +3186,6 @@ static int sde_kms_atomic_check(struct msm_kms *kms,
 		goto vm_clean_up;
 
 	goto end;
-
 vm_clean_up:
 	sde_kms_vm_res_release(kms, state);
 end:
@@ -3731,7 +3738,6 @@ static int sde_kms_get_mixer_count(const struct msm_kms *kms,
 			*num_lm, drm_fixp2int(mode_clock_hz),
 			sde_kms->perf.max_core_clk_rate);
 	return 0;
-
 error:
 	SDE_ERROR("required mode clk exceeds max mdp clk\n");
 	SDE_ERROR("[%s] h=%d v=%d fps=%d lm=%d mode_clk=%u max_clk=%llu\n",
@@ -3778,7 +3784,6 @@ static int _sde_kms_null_commit(struct drm_device *dev,
 	int ret = 0;
 
 	drm_modeset_acquire_init(&ctx, 0);
-
 retry:
 	ret = drm_modeset_lock_all_ctx(dev, &ctx);
 	if (ret == -EDEADLK && retry_cnt < SDE_KMS_MODESET_LOCK_MAX_TRIALS) {
@@ -3805,7 +3810,6 @@ retry:
 	ret = drm_atomic_commit(state);
 	if (ret)
 		SDE_ERROR("Error %d doing the atomic commit\n", ret);
-
 end:
 	if (state)
 		drm_atomic_state_put(state);
@@ -3980,7 +3984,6 @@ static int sde_kms_pm_suspend(struct device *dev)
 
 	/* acquire modeset lock(s) */
 	drm_modeset_acquire_init(&ctx, 0);
-
 retry:
 	ret = drm_modeset_lock_all_ctx(ddev, &ctx);
 	if (ret)
@@ -4017,7 +4020,8 @@ retry:
 			continue;
 
 		lp = sde_connector_get_lp(conn);
-		if (lp == SDE_MODE_DPMS_LP1) {
+		if (lp == SDE_MODE_DPMS_LP1 &&
+		    !sde_encoder_check_curr_mode(conn->encoder, MSM_DISPLAY_VIDEO_MODE)) {
 			/* transition LP1->LP2 on pm suspend */
 			ret = sde_connector_set_property_for_commit(conn, state,
 					CONNECTOR_PROP_LP, SDE_MODE_DPMS_LP2);
@@ -4065,7 +4069,6 @@ retry:
 
 	sde_kms->suspend_block = true;
 	_sde_kms_pm_suspend_idle_helper(sde_kms, dev);
-
 unlock:
 	if (state) {
 		drm_atomic_state_put(state);
@@ -4161,7 +4164,6 @@ retry:
 		drm_atomic_state_put(sde_kms->suspend_state);
 		sde_kms->suspend_state = NULL;
 	}
-
 end:
 	drm_modeset_drop_locks(&ctx);
 	drm_modeset_acquire_fini(&ctx);
@@ -4369,7 +4371,6 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 	sde_kms->base.aspace = sde_kms->aspace[0];
 
 	return 0;
-
 early_map_fail:
 	_sde_kms_unmap_all_splash_regions(sde_kms);
 fail:
@@ -4831,7 +4832,6 @@ static int _sde_kms_hw_init_ioremap(struct sde_kms *sde_kms,
 		if (rc)
 			SDE_ERROR("dbg base register sid failed: %d\n", rc);
 	}
-
 error:
 	return rc;
 }
@@ -5034,7 +5034,6 @@ static int _sde_kms_hw_init_blocks(struct sde_kms *sde_kms,
 	}
 
 	return 0;
-
 genpd_err:
 drm_obj_init_err:
 	sde_core_perf_destroy(&sde_kms->perf);
@@ -5309,7 +5308,6 @@ int sde_kms_vm_trusted_resource_init(struct sde_kms *sde_kms,
 	pm_runtime_get_sync(sde_kms->dev->dev);
 
 	return 0;
-
 error:
 	return ret;
 }
