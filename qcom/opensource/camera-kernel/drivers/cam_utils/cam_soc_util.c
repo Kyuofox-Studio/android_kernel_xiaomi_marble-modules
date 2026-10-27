@@ -346,7 +346,6 @@ static int cam_soc_util_clk_aggregate_register_entry(
 	CAM_DBG(CAM_UTIL,
 		"Adding new client %s for clk[%s] id %d, num clients %d",
 		soc_info->dev_name, clk_name, clk_id, aggregate_clk->num_clients);
-
 end:
 	mutex_unlock(&aggregate_lock);
 	return rc;
@@ -509,7 +508,6 @@ static int cam_soc_util_clk_wrapper_register_entry(
 	CAM_DBG(CAM_UTIL,
 		"Adding new client %s for clk[%s] id %d, num clients %d",
 		soc_info->dev_name, clk_name, clk_id, wrapper_clk->num_clients);
-
 end:
 	mutex_unlock(&wrapper_lock);
 	return rc;
@@ -693,7 +691,6 @@ static int cam_soc_util_clk_aggregate_set_clk_rate(
 		aggregate_clk->curr_clk_rate = final_clk_rate;
 		aggregate_clk->active_clients = active_clients;
 	}
-
 end:
 	mutex_unlock(&aggregate_lock);
 	return rc;
@@ -802,7 +799,6 @@ static int cam_soc_util_clk_wrapper_set_clk_rate(
 		wrapper_clk->curr_clk_rate = final_clk_rate;
 		wrapper_clk->active_clients = active_clients;
 	}
-
 end:
 	mutex_unlock(&wrapper_lock);
 	return rc;
@@ -1690,7 +1686,6 @@ int cam_soc_util_clk_enable_default(struct cam_hw_soc_info *soc_info,
 	}
 
 	return rc;
-
 clk_disable:
 	if (soc_info->cam_cx_ipeak_enable)
 		cam_cx_ipeak_update_vote_cx_ipeak(soc_info, 0);
@@ -2156,7 +2151,6 @@ static int cam_soc_util_get_dt_gpio_req_tbl(struct device_node *of_node,
 	kfree(val_array);
 
 	return rc;
-
 free_gpio_req_tbl:
 	kfree(gconf->cam_gpio_req_tbl);
 free_val_array:
@@ -2227,7 +2221,6 @@ static int cam_soc_util_get_gpio_info(struct cam_hw_soc_info *soc_info)
 	kfree(gpio_array);
 
 	return rc;
-
 free_gpio_array:
 	kfree(gpio_array);
 free_gpio_conf:
@@ -2538,6 +2531,9 @@ int cam_soc_util_regulator_disable(struct regulator *rgltr,
 	return rc;
 }
 
+#ifdef CONFIG_S12B
+static uint32_t cam_power_vana1_volt = 1300000;
+#endif
 
 int cam_soc_util_regulator_enable(struct regulator *rgltr,
 	const char *rgltr_name,
@@ -2554,6 +2550,12 @@ int cam_soc_util_regulator_enable(struct regulator *rgltr,
 	if (regulator_count_voltages(rgltr) > 0) {
 		CAM_DBG(CAM_UTIL, "voltage min=%d, max=%d",
 			rgltr_min_volt, rgltr_max_volt);
+
+#ifdef CONFIG_S12B
+		if (!strcmp(rgltr_name, "cam_vana1")) {
+			rgltr_min_volt = cam_power_vana1_volt;
+		}
+#endif
 
 		rc = regulator_set_voltage(
 			rgltr, rgltr_min_volt, rgltr_max_volt);
@@ -3117,7 +3119,6 @@ int cam_soc_util_request_platform_resource(
 		cam_soc_util_create_clk_lvl_debugfs(soc_info);
 
 	return rc;
-
 put_clk:
 
 	if (soc_info->mmrm_handle) {
@@ -3147,7 +3148,6 @@ put_clk:
 		devm_free_irq(soc_info->dev,
 			soc_info->irq_line->start, irq_data);
 	}
-
 put_regulator:
 	if (i == -1)
 		i = soc_info->num_rgltr;
@@ -3158,7 +3158,6 @@ put_regulator:
 			soc_info->rgltr[i] = NULL;
 		}
 	}
-
 unmap_base:
 	if (i == -1)
 		i = soc_info->num_reg_map;
@@ -3268,11 +3267,9 @@ int cam_soc_util_enable_platform_resource(struct cam_hw_soc_info *soc_info,
 	}
 
 	return rc;
-
 disable_clk:
 	if (enable_clocks)
 		cam_soc_util_clk_disable_default(soc_info);
-
 disable_regulator:
 	cam_soc_util_regulator_disable_default(soc_info);
 
@@ -3380,7 +3377,6 @@ static int cam_soc_util_dump_cont_reg_range(
 			(reg_read->offset + (i * sizeof(uint32_t))));
 		dump_out_buf->bytes_written += (2 * sizeof(uint32_t));
 	}
-
 end:
 	return rc;
 }
@@ -3499,7 +3495,6 @@ static int cam_soc_util_dump_dmi_reg_range(
 			dmi_read->post_read_config[i].offset,
 			dmi_read->post_read_config[i].value);
 	}
-
 end:
 	return rc;
 }
@@ -3623,7 +3618,6 @@ static int cam_soc_util_dump_dmi_reg_range_user_buf(
 	hdr->size = (waddr - start) * hdr->word_size;
 	dump_args->offset +=  hdr->size +
 		sizeof(struct cam_hw_soc_dump_header);
-
 end:
 	if (dump_args)
 		cam_mem_put_cpu_buf(dump_args->buf_handle);
@@ -3991,7 +3985,6 @@ int cam_soc_util_reg_dump_to_cmd_buf(void *ctx,
 			}
 		}
 	}
-
 end:
 	return rc;
 }

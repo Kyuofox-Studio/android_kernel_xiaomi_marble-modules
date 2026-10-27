@@ -189,6 +189,17 @@ struct cam_cdm_bl_info {
 };
 
 /**
+ * struct cam_cdm_handle_info - identifies the client for hang detection
+ *
+ * @handle:    handle for the BL FIFO client
+ * @module_id: hardware module requesting hang detection
+ */
+struct cam_cdm_handle_info {
+	u32 handle;
+	u32 module_id;
+};
+
+/**
  * @brief : API to get the CDM capabilities for a camera device type
  *
  * @identifier : Input pointer to a string which is the device label from dt
@@ -323,10 +334,11 @@ struct cam_cdm_utils_ops *cam_cdm_publish_ops(void);
  *          this should be only performed only if the CDM is private.
  *
  * @handle : Input handle of the CDM to detect hang
+ * @module_id : Module id of the HW
  *
  * @return 0 on success
  */
-int cam_cdm_detect_hang_error(uint32_t handle);
+int cam_cdm_detect_hang_error(u32 handle, u32 module_id);
 
 /**
  * @brief : API to dump the CDM Debug registers

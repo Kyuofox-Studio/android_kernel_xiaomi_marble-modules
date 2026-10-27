@@ -391,6 +391,7 @@ static void cam_tfe_hw_mgr_stop_hw_res(
 	for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
 		if (!isp_hw_res->hw_res[i])
 			continue;
+		isp_hw_res->hw_res[i]->rdi_only_ctx = false;
 		hw_intf = isp_hw_res->hw_res[i]->hw_intf;
 
 		if (isp_hw_res->hw_res[i]->res_state !=
@@ -636,6 +637,7 @@ static int cam_tfe_mgr_csid_stop_hw(
 				continue;
 
 			isp_res = hw_mgr_res->hw_res[i];
+			isp_res->rdi_only_ctx = false;
 			if (isp_res->hw_intf->hw_idx != base_idx)
 				continue;
 			CAM_DBG(CAM_ISP, "base_idx %d res_id %d cnt %u",
@@ -1584,7 +1586,6 @@ static int cam_tfe_hw_mgr_acquire_res_tfe_csid_rdi(
 				goto put_res;
 			}
 		}
-
 acquire_successful:
 		CAM_DBG(CAM_ISP, "CSID path :%d acquired success", path_res_id);
 		csid_res->res_type = CAM_ISP_RESOURCE_PIX_PATH;
@@ -2737,7 +2738,6 @@ static int cam_isp_tfe_blob_bw_update(
 			}
 		}
 	}
-
 end:
 	cam_free_clear((void *)bw_upd_args);
 	bw_upd_args = NULL;
@@ -2783,8 +2783,7 @@ static int cam_tfe_mgr_config_hw(void *hw_mgr_priv,
 
 	if (cfg->reapply_type && cfg->cdm_reset_before_apply) {
 		if (ctx->last_cdm_done_req < cfg->request_id) {
-			cdm_hang_detect =
-				cam_cdm_detect_hang_error(ctx->cdm_handle);
+			cdm_hang_detect = cam_cdm_detect_hang_error(ctx->cdm_handle, CAM_ISP);
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
 				"CDM callback not received for req: %lld, last_cdm_done_req: %lld, cdm_hang_detect: %d",
 				cfg->request_id, ctx->last_cdm_done_req,
@@ -2926,7 +2925,7 @@ static int cam_tfe_mgr_config_hw(void *hw_mgr_priv,
 			msecs_to_jiffies(
 			CAM_TFE_HW_CONFIG_TIMEOUT));
 		if (rem_jiffies <= 0) {
-			rc = cam_cdm_detect_hang_error(ctx->cdm_handle);
+			rc = cam_cdm_detect_hang_error(ctx->cdm_handle, CAM_ISP);
 			if (rc == 0) {
 				CAM_ERR(CAM_ISP,
 					"CDM workqueue delay detected, wait for some more time req_id=%llu rc=%d ctx_index %d",
@@ -2964,7 +2963,6 @@ static int cam_tfe_mgr_config_hw(void *hw_mgr_priv,
 	if ((i == CAM_TFE_HW_CONFIG_WAIT_MAX_TRY) && (rc == 0))
 		CAM_DBG(CAM_ISP,
 			"Wq delayed but IRQ CDM done");
-
 end:
 	CAM_DBG(CAM_ISP, "Exit: Config Done: %llu",  cfg->request_id);
 
@@ -3203,7 +3201,6 @@ static int cam_tfe_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 	}
 	ctx->last_submit_bl_cmd.bl_count = 0;
 	ctx->packet = NULL;
-
 end:
 	if (!ctx->skip_reg_dump_buf_put) {
 		for (i = 0; i < ctx->num_reg_dump_buf; i++)
@@ -3303,7 +3300,6 @@ static int cam_tfe_mgr_restart_hw(void *start_hw_args)
 
 	CAM_DBG(CAM_ISP, "Exit...(success)");
 	return 0;
-
 err:
 	cam_tfe_mgr_stop_hw_in_overflow(start_hw_args);
 	CAM_DBG(CAM_ISP, "Exit...(rc=%d)", rc);
@@ -3412,7 +3408,6 @@ static int cam_tfe_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 			 ctx->cdm_handle);
 		goto deinit_hw;
 	}
-
 start_only:
 	/* Apply initial configuration */
 	CAM_DBG(CAM_ISP, "Config HW");
@@ -3486,7 +3481,6 @@ start_only:
 	}
 
 	return 0;
-
 err:
 	stop_isp.stop_only = false;
 	stop_isp.hw_stop_cmd = CAM_ISP_HW_STOP_IMMEDIATELY;
@@ -3496,13 +3490,10 @@ err:
 	cam_tfe_mgr_stop_hw(hw_mgr_priv, &stop_args);
 	CAM_DBG(CAM_ISP, "Exit...(rc=%d)", rc);
 	return rc;
-
 cdm_streamoff:
 	cam_cdm_stream_off(ctx->cdm_handle);
-
 deinit_hw:
 	cam_tfe_hw_mgr_deinit_hw(ctx);
-
 tasklet_stop:
 	cam_tasklet_stop(ctx->common.tasklet_info);
 
@@ -4474,7 +4465,6 @@ static int cam_tfe_update_dual_config(
 				goto end;
 		}
 	}
-
 end:
 	cam_mem_put_cpu_buf(cmd_desc->mem_handle);
 	return rc;
@@ -4848,7 +4838,6 @@ static int cam_tfe_mgr_prepare_hw_update(void *hw_mgr_priv,
 			goto end;
 		}
 	}
-
 end:
 	return rc;
 }
@@ -5142,7 +5131,6 @@ static void cam_tfe_mgr_dump_pf_data(
 	*resource_type = get_res.out_res_id;
 
 	cam_tfe_mgr_pf_dump(get_res.out_res_id, ctx);
-
 outportlog:
 	cam_tfe_mgr_print_io_bufs(hw_mgr, *resource_type, packet,
 		ctx_found, ctx);

@@ -134,7 +134,6 @@ static int __cam_custom_ctx_reg_upd_in_applied_state(
 
 	custom_ctx->substate_activated = CAM_CUSTOM_CTX_ACTIVATED_SOF;
 	CAM_DBG(CAM_CUSTOM, "next substate %d", custom_ctx->substate_activated);
-
 end:
 	return 0;
 }
@@ -317,7 +316,6 @@ static int __cam_custom_ctx_handle_bubble(
 		CAM_ERR(CAM_CUSTOM,
 			"req %llu not found in wait or active list bubble recovery failed ctx: %u",
 			req_id, ctx->ctx_id);
-
 end:
 	return rc;
 }
@@ -549,6 +547,10 @@ static int __cam_custom_ctx_get_dev_info_in_acquired(struct cam_context *ctx,
 	dev_info->dev_id = CAM_REQ_MGR_DEVICE_CUSTOM_HW;
 	dev_info->p_delay = 1;
 	dev_info->trigger = CAM_TRIGGER_POINT_SOF;
+#if IS_ENABLED(CONFIG_ISPV3)
+	dev_info->trigger_source = CAM_REQ_MGR_TRIG_SRC_INTERNAL;
+	dev_info->latest_frame_id = -1;
+#endif
 
 	return 0;
 }
@@ -618,7 +620,6 @@ static int __cam_custom_ctx_flush_req_in_top_state(
 
 		custom_ctx->init_received = false;
 	}
-
 end:
 	atomic_set(&custom_ctx->process_bubble, 0);
 	return rc;
@@ -943,7 +944,6 @@ static int __cam_custom_ctx_apply_req_in_activated_state(
 		list_add_tail(&req->list, &ctx->wait_req_list);
 		spin_unlock_bh(&ctx->lock);
 	}
-
 end:
 	return rc;
 }
@@ -1022,7 +1022,6 @@ static int __cam_custom_ctx_acquire_hw_v1(
 
 	kfree(acquire_hw_info);
 	return rc;
-
 free_res:
 	kfree(acquire_hw_info);
 end:
@@ -1277,7 +1276,6 @@ static int __cam_custom_ctx_config_dev(struct cam_context *ctx,
 		req->request_id, ctx->ctx_id);
 
 	return rc;
-
 put_ref:
 	for (--i; i >= 0; i--) {
 		if (cam_sync_put_obj_ref(req_custom->fence_map_out[i].sync_id))
@@ -1326,7 +1324,6 @@ static int __cam_custom_ctx_config_dev_in_flushed(struct cam_context *ctx,
 	else
 		CAM_INFO(CAM_CUSTOM,
 			"Received init after flush. Re-start HW complete.");
-
 end:
 	return rc;
 }
@@ -1438,7 +1435,6 @@ static int __cam_custom_ctx_start_dev_in_ready(struct cam_context *ctx,
 	list_del_init(&req->list);
 	list_add_tail(&req->list, &ctx->wait_req_list);
 	spin_unlock_bh(&ctx->lock);
-
 end:
 	return rc;
 }

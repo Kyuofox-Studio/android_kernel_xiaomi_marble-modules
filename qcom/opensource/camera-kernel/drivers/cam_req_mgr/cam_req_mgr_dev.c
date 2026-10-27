@@ -30,7 +30,7 @@
 #include "cam_cpas_hw.h"
 #include "cam_compat.h"
 
-#define CAM_REQ_MGR_EVENT_MAX 30
+#define CAM_REQ_MGR_EVENT_MAX 240
 
 static struct cam_req_mgr_device g_dev;
 struct kmem_cache *g_cam_req_mgr_timer_cachep;
@@ -62,7 +62,6 @@ static int cam_media_device_setup(struct device *dev)
 		goto media_fail;
 
 	return rc;
-
 media_fail:
 	kfree(g_dev.v4l2_dev->mdev);
 	g_dev.v4l2_dev->mdev = NULL;
@@ -92,7 +91,6 @@ static int cam_v4l2_device_setup(struct device *dev)
 		goto reg_fail;
 
 	return rc;
-
 reg_fail:
 	kfree(g_dev.v4l2_dev);
 	g_dev.v4l2_dev = NULL;
@@ -155,7 +153,6 @@ static int cam_req_mgr_open(struct file *filep)
 	mutex_unlock(&g_dev.cam_lock);
 	cam_req_mgr_rwsem_write_op(CAM_SUBDEV_UNLOCK);
 	return rc;
-
 mem_mgr_init_fail:
 	v4l2_fh_release(filep);
 end:
@@ -666,7 +663,6 @@ static int cam_video_device_setup(void)
 	g_dev.video->entity.name = video_device_node_name(g_dev.video);
 
 	return rc;
-
 entity_fail:
 	video_unregister_device(g_dev.video);
 v4l2_fail:
@@ -791,7 +787,6 @@ int cam_register_subdev(struct cam_subdev *csd)
 	}
 
 	g_dev.count++;
-
 reg_fail:
 	mutex_unlock(&g_dev.dev_lock);
 	return rc;
@@ -888,7 +883,6 @@ static int cam_req_mgr_component_master_bind(struct device *dev)
 	}
 
 	return rc;
-
 sysfs_fail:
 	sysfs_remove_file(&dev->kobj, &camera_debug_sysfs_attr.attr);
 req_mgr_device_deinit:
@@ -959,7 +953,6 @@ static int cam_req_mgr_probe(struct platform_device *pdev)
 			rc);
 		goto end;
 	}
-
 end:
 	return rc;
 }

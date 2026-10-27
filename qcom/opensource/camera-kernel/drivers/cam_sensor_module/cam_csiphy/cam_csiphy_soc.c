@@ -240,8 +240,6 @@ int32_t cam_csiphy_enable_hw(struct csiphy_device *csiphy_dev, int32_t index)
 	cam_csiphy_reset(csiphy_dev);
 
 	return rc;
-
-
 csiphy_disable_platform_resource:
 	cam_soc_util_disable_platform_resource(soc_info, true, true);
 
@@ -280,6 +278,7 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 	char      *csi_3p_clk_name = "csi_phy_3p_clk";
 	char      *csi_3p_clk_src_name = "csiphy_3p_clk_src";
 	struct cam_hw_soc_info   *soc_info;
+	bool is_m16t;
 
 	soc_info = &csiphy_dev->soc_info;
 
@@ -297,6 +296,7 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 	}
 
 	csiphy_dev->prgm_cmn_reg_across_csiphy = (bool) is_regulator_enable_sync;
+	is_m16t = of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-v2.1.3-m16t");
 
 	if (of_device_is_compatible(soc_info->dev->of_node,
 		"qcom,csiphy-v1.0")) {
@@ -411,8 +411,23 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		csiphy_dev->hw_version = CSIPHY_VERSION_V123;
 		csiphy_dev->clk_lane = 0;
 		csiphy_dev->ctrl_reg->data_rates_settings_table = &data_rate_delta_table_1_2_3;
-	} else if (of_device_is_compatible(soc_info->dev->of_node,
-		"qcom,csiphy-v1.2.4")) {
+	} else if (of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-v1.2.3-n16")) {
+		csiphy_dev->ctrl_reg->csiphy_2ph_reg = csiphy_2ph_v1_2_3_reg;
+		csiphy_dev->ctrl_reg->csiphy_2ph_combo_mode_reg = csiphy_2ph_v1_2_3_combo_mode_reg;
+		csiphy_dev->ctrl_reg->csiphy_3ph_reg = csiphy_3ph_v1_2_3_reg_n16;
+		csiphy_dev->ctrl_reg->csiphy_2ph_3ph_mode_reg = NULL;
+		csiphy_dev->ctrl_reg->csiphy_irq_reg = csiphy_irq_reg_1_2_3;
+		csiphy_dev->ctrl_reg->csiphy_common_reg = csiphy_common_reg_1_2_3;
+		csiphy_dev->ctrl_reg->csiphy_reset_enter_regs = csiphy_reset_reg_1_2_3;
+		csiphy_dev->ctrl_reg->csiphy_reset_exit_regs = NULL;
+		csiphy_dev->ctrl_reg->getclockvoting = get_clk_vote_default;
+		csiphy_dev->ctrl_reg->csiphy_reg = csiphy_v1_2_3;
+		csiphy_dev->is_divisor_32_comp = true;
+		csiphy_dev->hw_version = CSIPHY_VERSION_V123;
+		csiphy_dev->clk_lane = 0;
+		csiphy_dev->ctrl_reg->data_rates_settings_table = &data_rate_delta_table_1_2_3;
+		CAM_DBG(CAM_CSIPHY, "qcom,csiphy-v1.2.3-n16");
+	} else if (of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-v1.2.4")) {
 		csiphy_dev->ctrl_reg->csiphy_2ph_reg = csiphy_2ph_v1_2_3_reg;
 		csiphy_dev->ctrl_reg->csiphy_2ph_combo_mode_reg = csiphy_2ph_v1_2_3_combo_mode_reg;
 		csiphy_dev->ctrl_reg->csiphy_3ph_reg = csiphy_3ph_v1_2_3_reg;
@@ -427,8 +442,7 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		csiphy_dev->hw_version = CSIPHY_VERSION_V124;
 		csiphy_dev->clk_lane = 0;
 		csiphy_dev->ctrl_reg->data_rates_settings_table = &data_rate_delta_table_1_2_3;
-	}  else if (of_device_is_compatible(soc_info->dev->of_node,
-		"qcom,csiphy-v1.2.5")) {
+	} else if (of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-v1.2.5")) {
 		csiphy_dev->ctrl_reg->csiphy_2ph_reg = csiphy_2ph_v1_2_5_reg;
 		csiphy_dev->ctrl_reg->csiphy_2ph_combo_mode_reg = csiphy_2ph_v1_2_5_combo_mode_reg;
 		csiphy_dev->ctrl_reg->csiphy_3ph_reg = csiphy_3ph_v1_2_5_reg;
@@ -443,8 +457,7 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		csiphy_dev->hw_version = CSIPHY_VERSION_V125;
 		csiphy_dev->clk_lane = 0;
 		csiphy_dev->ctrl_reg->data_rates_settings_table = NULL;
-	} else if (of_device_is_compatible(soc_info->dev->of_node,
-		"qcom,csiphy-v2.0")) {
+	} else if (of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-v2.0")) {
 		csiphy_dev->ctrl_reg->csiphy_2ph_reg = csiphy_2ph_v2_0_reg;
 		csiphy_dev->ctrl_reg->csiphy_2ph_combo_mode_reg = csiphy_2ph_v2_0_combo_mode_reg;
 		csiphy_dev->ctrl_reg->csiphy_3ph_reg = csiphy_3ph_v2_0_reg;
@@ -459,8 +472,7 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		csiphy_dev->is_divisor_32_comp = false;
 		csiphy_dev->clk_lane = 0;
 		csiphy_dev->ctrl_reg->data_rates_settings_table = NULL;
-	} else if (of_device_is_compatible(soc_info->dev->of_node,
-		"qcom,csiphy-v2.0.1")) {
+	} else if (of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-v2.0.1")) {
 		csiphy_dev->ctrl_reg->csiphy_2ph_reg = csiphy_2ph_v2_0_reg;
 		csiphy_dev->ctrl_reg->csiphy_2ph_combo_mode_reg = csiphy_2ph_v2_0_combo_mode_reg;
 		csiphy_dev->ctrl_reg->csiphy_3ph_reg = csiphy_3ph_v2_0_reg;
@@ -475,8 +487,9 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		csiphy_dev->is_divisor_32_comp = false;
 		csiphy_dev->clk_lane = 0;
 		csiphy_dev->ctrl_reg->data_rates_settings_table = NULL;
-	} else if (of_device_is_compatible(soc_info->dev->of_node,
-		"qcom,csiphy-v2.1.0")) {
+	} else if (of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-v2.1.0") ||
+		   of_device_is_compatible(soc_info->dev->of_node,
+					   "qcom,csiphy-v2.1.0-xiaomi-l2")) {
 		csiphy_dev->ctrl_reg->csiphy_2ph_reg = csiphy_2ph_v2_1_0_reg;
 		csiphy_dev->ctrl_reg->csiphy_2ph_combo_mode_reg = csiphy_2ph_v2_1_0_combo_mode_reg;
 		csiphy_dev->ctrl_reg->csiphy_3ph_reg = csiphy_3ph_v2_1_0_reg;
@@ -492,8 +505,7 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		csiphy_dev->clk_lane = 0;
 		csiphy_dev->ctrl_reg->data_rates_settings_table = &data_rate_delta_table_2_1_0;
 		csiphy_dev->ctrl_reg->csiphy_bist_reg = &bist_setting_2_1_0;
-	} else if (of_device_is_compatible(soc_info->dev->of_node,
-		"qcom,csiphy-v2.1.1")) {
+	} else if (of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-v2.1.1")) {
 		csiphy_dev->ctrl_reg->csiphy_2ph_reg = csiphy_2ph_v2_1_1_reg;
 		csiphy_dev->ctrl_reg->csiphy_2ph_combo_mode_reg = csiphy_2ph_v2_1_1_combo_mode_reg;
 		csiphy_dev->ctrl_reg->csiphy_3ph_reg = csiphy_3ph_v2_1_1_reg;
@@ -509,8 +521,10 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		csiphy_dev->clk_lane = 0;
 		csiphy_dev->ctrl_reg->data_rates_settings_table = &data_rate_delta_table_2_1_1;
 		csiphy_dev->ctrl_reg->csiphy_bist_reg = &bist_setting_2_1_1;
-	} else if (of_device_is_compatible(soc_info->dev->of_node,
-		"qcom,csiphy-v2.1.3")) {
+	} else if (of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-v2.1.3") ||
+		   is_m16t ||
+		   of_device_is_compatible(soc_info->dev->of_node,
+					   "qcom,csiphy-v2.1.3-xiaomi-l2s")) {
 		csiphy_dev->ctrl_reg->csiphy_2ph_reg = csiphy_2ph_v2_1_3_reg;
 		csiphy_dev->ctrl_reg->csiphy_2ph_combo_mode_reg = csiphy_2ph_v2_1_3_combo_mode_reg;
 		csiphy_dev->ctrl_reg->csiphy_3ph_reg = csiphy_3ph_v2_1_3_reg;
@@ -526,11 +540,102 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		csiphy_dev->clk_lane = 0;
 		csiphy_dev->ctrl_reg->data_rates_settings_table = &data_rate_delta_table_2_1_3;
 		csiphy_dev->ctrl_reg->csiphy_bist_reg = &bist_setting_2_1_3;
+		if (is_m16t) {
+			csiphy_dev->ctrl_reg->csiphy_2ph_reg = csiphy_2ph_v2_1_3_reg_m16t;
+			csiphy_dev->ctrl_reg->data_rates_settings_table =
+				&data_rate_delta_table_2_1_3_xiaomi_m16t;
+			csiphy_dev->device_has_customized = 1;
+			strscpy(csiphy_dev->phy_dts_name, "qcom,csiphy-v2.1.3-m16t",
+				sizeof(csiphy_dev->phy_dts_name));
+		}
+	} else if (of_device_is_compatible(soc_info->dev->of_node,
+					   "qcom,csiphy-v2.1.3-xiaomi-l3s")) {
+		csiphy_dev->ctrl_reg->csiphy_2ph_reg = csiphy_2ph_v2_1_3_reg_l3s;
+		csiphy_dev->ctrl_reg->csiphy_2ph_combo_mode_reg = csiphy_2ph_v2_1_3_combo_mode_reg;
+		csiphy_dev->ctrl_reg->csiphy_3ph_reg = csiphy_3ph_v2_1_3_reg;
+		csiphy_dev->ctrl_reg->csiphy_2ph_3ph_mode_reg = NULL;
+		csiphy_dev->ctrl_reg->csiphy_irq_reg = csiphy_irq_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_common_reg = csiphy_common_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_reset_enter_regs = csiphy_reset_enter_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_reset_exit_regs = csiphy_reset_exit_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_reg = csiphy_v2_1_3;
+		csiphy_dev->ctrl_reg->getclockvoting = get_clk_voting_dynamic;
+		csiphy_dev->hw_version = CSIPHY_VERSION_V213;
+		csiphy_dev->is_divisor_32_comp = true;
+		csiphy_dev->clk_lane = 0;
+		csiphy_dev->ctrl_reg->data_rates_settings_table =
+			&data_rate_delta_table_2_1_3_xiaomi_l3s;
+		csiphy_dev->ctrl_reg->csiphy_bist_reg = &bist_setting_2_1_3;
+	} else if (of_device_is_compatible(soc_info->dev->of_node,
+					   "qcom,csiphy-v2.1.3-xiaomi-l1")) {
+		csiphy_dev->ctrl_reg->csiphy_2ph_reg = csiphy_2ph_v2_1_3_reg;
+		csiphy_dev->ctrl_reg->csiphy_2ph_combo_mode_reg = csiphy_2ph_v2_1_3_combo_mode_reg;
+		csiphy_dev->ctrl_reg->csiphy_3ph_reg = csiphy_3ph_v2_1_3_reg;
+		csiphy_dev->ctrl_reg->csiphy_2ph_3ph_mode_reg = NULL;
+		csiphy_dev->ctrl_reg->csiphy_irq_reg = csiphy_irq_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_common_reg = csiphy_common_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_reset_enter_regs = csiphy_reset_enter_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_reset_exit_regs = csiphy_reset_exit_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_reg = csiphy_v2_1_3;
+		csiphy_dev->ctrl_reg->getclockvoting = get_clk_voting_dynamic;
+		csiphy_dev->hw_version = CSIPHY_VERSION_V213;
+		csiphy_dev->is_divisor_32_comp = true;
+		csiphy_dev->clk_lane = 0;
+		csiphy_dev->ctrl_reg->data_rates_settings_table =
+			&data_rate_delta_table_2_1_3_xiaomi_l1;
+		csiphy_dev->ctrl_reg->csiphy_bist_reg = &bist_setting_2_1_3;
+	} else if (of_device_is_compatible(soc_info->dev->of_node,
+					   "qcom,csiphy-v2.1.3-xiaomi-l18")) {
+		csiphy_dev->ctrl_reg->csiphy_2ph_reg = csiphy_2ph_v2_1_3_reg;
+		csiphy_dev->ctrl_reg->csiphy_2ph_combo_mode_reg = csiphy_2ph_v2_1_3_combo_mode_reg;
+		csiphy_dev->ctrl_reg->csiphy_3ph_reg = csiphy_3ph_v2_1_3_reg;
+		csiphy_dev->ctrl_reg->csiphy_2ph_3ph_mode_reg = NULL;
+		csiphy_dev->ctrl_reg->csiphy_irq_reg = csiphy_irq_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_common_reg = csiphy_common_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_reset_enter_regs = csiphy_reset_enter_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_reset_exit_regs = csiphy_reset_exit_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_reg = csiphy_v2_1_3;
+		csiphy_dev->ctrl_reg->getclockvoting = get_clk_voting_dynamic;
+		csiphy_dev->hw_version = CSIPHY_VERSION_V213;
+		csiphy_dev->is_divisor_32_comp = true;
+		csiphy_dev->clk_lane = 0;
+		csiphy_dev->ctrl_reg->data_rates_settings_table =
+			&data_rate_delta_table_2_1_3_xiaomi_l18;
+		csiphy_dev->ctrl_reg->csiphy_bist_reg = &bist_setting_2_1_3;
+	} else if (of_device_is_compatible(soc_info->dev->of_node,
+					   "qcom,csiphy-v2.1.3-xiaomi-m11a")) {
+		csiphy_dev->ctrl_reg->csiphy_2ph_reg = csiphy_2ph_v2_1_3_reg_m11a;
+		csiphy_dev->ctrl_reg->csiphy_2ph_combo_mode_reg = csiphy_2ph_v2_1_3_combo_mode_reg;
+		csiphy_dev->ctrl_reg->csiphy_3ph_reg = csiphy_3ph_v2_1_3_reg;
+		csiphy_dev->ctrl_reg->csiphy_2ph_3ph_mode_reg = NULL;
+		csiphy_dev->ctrl_reg->csiphy_irq_reg = csiphy_irq_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_common_reg = csiphy_common_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_reset_enter_regs = csiphy_reset_enter_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_reset_exit_regs = csiphy_reset_exit_reg_2_1_3;
+		csiphy_dev->ctrl_reg->csiphy_reg = csiphy_v2_1_3;
+		csiphy_dev->ctrl_reg->getclockvoting = get_clk_voting_dynamic;
+		csiphy_dev->hw_version = CSIPHY_VERSION_V213;
+		csiphy_dev->is_divisor_32_comp = true;
+		csiphy_dev->clk_lane = 0;
+		csiphy_dev->ctrl_reg->data_rates_settings_table =
+			&data_rate_delta_table_2_1_3_xiaomi_m11a;
+		csiphy_dev->ctrl_reg->csiphy_bist_reg = &bist_setting_2_1_3;
+		CAM_INFO(CAM_CSIPHY, "qcom,csiphy-v2.1.3-xiaomi-m11a branch");
 	} else {
 		CAM_ERR(CAM_CSIPHY, "invalid hw version : 0x%x",
 			csiphy_dev->hw_version);
 		rc =  -EINVAL;
 		return rc;
+	}
+
+	if (of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-v2.1.0-xiaomi-l2")) {
+		csiphy_dev->ctrl_reg->data_rates_settings_table =
+			&data_rate_delta_table_2_1_0_xiaomi_l2;
+	}
+
+	if (of_device_is_compatible(soc_info->dev->of_node, "qcom,csiphy-v2.1.3-xiaomi-l2s")) {
+		csiphy_dev->ctrl_reg->data_rates_settings_table =
+			&data_rate_delta_table_2_1_3_xiaomi_l2s;
 	}
 
 	if (soc_info->num_clk > CSIPHY_NUM_CLK_MAX) {

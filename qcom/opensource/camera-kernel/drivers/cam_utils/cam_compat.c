@@ -12,6 +12,9 @@
 #include "cam_debug_util.h"
 #include "cam_cpas_api.h"
 #include "camera_main.h"
+#if IS_REACHABLE(CONFIG_MI_HARDWARE_ID)
+#include "hwid.h"
+#endif
 
 #if KERNEL_VERSION(5, 15, 0) <= LINUX_VERSION_CODE
 #include <soc/qcom/socinfo.h>
@@ -46,7 +49,6 @@ int cam_reserve_icp_fw(struct cam_fw_alloc_info *icp_fw, size_t fw_length)
 		goto end;
 	}
 	memset_io(icp_fw->fw_kva, 0, fw_length);
-
 end:
 	return rc;
 }
@@ -227,10 +229,20 @@ static inline int camera_component_compare_dev(struct device *dev, void *data)
 	return dev == data;
 }
 
+#if IS_ENABLED(CONFIG_ISPV3)
+static inline int camera_component_compare_ispv3_dev(struct device *dev, void *data)
+{
+	return !strcmp(dev_name(dev), "ispv3-cam");
+}
+#endif
+
 /* Add component matches to list for master of aggregate driver */
 int camera_component_match_add_drivers(struct device *master_dev,
 	struct component_match **match_list)
 {
+#if IS_ENABLED(CONFIG_ISPV3)
+	struct device_node *np;
+#endif
 	int i, rc = 0;
 	struct platform_device *pdev = NULL;
 	struct i2c_client *client = NULL;
@@ -241,6 +253,37 @@ int camera_component_match_add_drivers(struct device *master_dev,
 		rc = -EINVAL;
 		goto end;
 	}
+
+#if IS_REACHABLE(CONFIG_MI_HARDWARE_ID) && IS_ENABLED(CONFIG_SPECTRA_SENSOR)
+	/*
+	 * The China L9S variant has two flash devices.  Wait for both before
+	 * constructing the component list, without blocking the probe thread.
+	 */
+	if (get_hw_version_platform() == HARDWARE_PROJECT_L9S &&
+	    get_hw_country_version() == CountryCN) {
+		unsigned int flash_count = 0;
+		const void *flash_drv = &cam_flash_i2c_driver.driver;
+
+		while ((match_dev = bus_find_device(&i2c_bus_type, start_dev, flash_drv,
+						    &camera_i2c_compare_dev))) {
+			put_device(start_dev);
+			start_dev = match_dev;
+			flash_count++;
+		}
+		put_device(start_dev);
+		start_dev = NULL;
+		if (flash_count < 2)
+			return -EPROBE_DEFER;
+	}
+#endif
+
+#if IS_ENABLED(CONFIG_ISPV3)
+	np = of_find_node_by_path("/soc/ispv3_vdd1_ldo");
+	if (np) {
+		component_match_add(master_dev, match_list, camera_component_compare_ispv3_dev,
+				    NULL);
+	}
+#endif
 
 	for (i = 0; i < ARRAY_SIZE(cam_component_platform_drivers); i++) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
@@ -285,7 +328,6 @@ int camera_component_match_add_drivers(struct device *master_dev,
 		}
 		put_device(start_dev);
 	}
-
 end:
 	return rc;
 }

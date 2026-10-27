@@ -26,6 +26,10 @@
 #include "cam_tpg_dev.h"
 #include "cam_flash_dev.h"
 
+#if IS_ENABLED(CONFIG_ISPV3)
+#include "cam_ispv3_dev.h"
+#endif
+
 #include "a5_core.h"
 #include "lx7_dev.h"
 #include "ipe_core.h"
@@ -104,15 +108,20 @@ static const struct camera_submodule_component camera_isp[] = {
 
 static const struct camera_submodule_component camera_sensor[] = {
 #ifdef CONFIG_SPECTRA_SENSOR
-	{&cam_res_mgr_init, &cam_res_mgr_exit},
-	{&cam_cci_init_module, &cam_cci_exit_module},
-	{&cam_csiphy_init_module, &cam_csiphy_exit_module},
-	{&cam_tpg_init_module, &cam_tpg_exit_module},
-	{&cam_actuator_driver_init, &cam_actuator_driver_exit},
-	{&cam_sensor_driver_init, &cam_sensor_driver_exit},
-	{&cam_eeprom_driver_init, &cam_eeprom_driver_exit},
-	{&cam_ois_driver_init, &cam_ois_driver_exit},
-	{&cam_flash_init_module, &cam_flash_exit_module},
+	{ &cam_res_mgr_init, &cam_res_mgr_exit },
+	{ &cam_cci_init_module, &cam_cci_exit_module },
+	{ &cam_csiphy_init_module, &cam_csiphy_exit_module },
+	{ &cam_tpg_init_module, &cam_tpg_exit_module },
+	{ &cam_actuator_driver_init, &cam_actuator_driver_exit },
+	{ &cam_sensor_driver_init, &cam_sensor_driver_exit },
+	{ &cam_eeprom_driver_init, &cam_eeprom_driver_exit },
+	{ &cam_ois_driver_init, &cam_ois_driver_exit },
+	{ &cam_flash_init_module, &cam_flash_exit_module },
+
+#if IS_ENABLED(CONFIG_ISPV3)
+	{ &cam_ispv3_driver_init, &cam_ispv3_driver_exit },
+#endif
+
 #endif
 };
 
@@ -258,7 +267,6 @@ static int camera_verify_submodules(void)
 			}
 		}
 	}
-
 end:
 	return rc;
 }
@@ -308,7 +316,6 @@ static int camera_init(void)
 	}
 
 	CAM_DBG(CAM_UTIL, "Camera initcalls done");
-
 end_init:
 	return rc;
 }

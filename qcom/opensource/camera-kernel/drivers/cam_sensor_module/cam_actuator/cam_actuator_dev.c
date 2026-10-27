@@ -9,6 +9,7 @@
 #include "cam_actuator_core.h"
 #include "cam_trace.h"
 #include "camera_main.h"
+#include "cam_actuator_parklens_thread.h" //xiaomi add
 
 static int cam_actuator_subdev_close_internal(struct v4l2_subdev *sd,
 	struct v4l2_subdev_fh *fh)
@@ -221,6 +222,7 @@ static int cam_actuator_i2c_component_bind(struct device *dev,
 	}
 
 	INIT_LIST_HEAD(&(a_ctrl->i2c_data.init_settings.list_head));
+	INIT_LIST_HEAD(&(a_ctrl->i2c_data.parklens_settings.list_head)); //xiaomi add
 
 	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++)
 		INIT_LIST_HEAD(&(a_ctrl->i2c_data.per_frame[i].list_head));
@@ -236,8 +238,16 @@ static int cam_actuator_i2c_component_bind(struct device *dev,
 	a_ctrl->last_flush_req = 0;
 	a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
 
-	return rc;
+	/* xiaomi add begin */
+	INIT_LIST_HEAD(&(a_ctrl->i2c_data.parklens_settings.list_head));
+	parklens_atomic_set(&(a_ctrl->parklens_ctrl.parklens_opcode),
+			    ENTER_PARKLENS_WITH_POWERDOWN);
+	parklens_atomic_set(&(a_ctrl->parklens_ctrl.exit_result), PARKLENS_ENTER);
+	parklens_atomic_set(&(a_ctrl->parklens_ctrl.parklens_state), PARKLENS_INVALID);
+	a_ctrl->parklens_ctrl.parklens_thread = NULL;
+	/* xiaomi add end */
 
+	return rc;
 unreg_subdev:
 	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
 free_soc:
@@ -401,11 +411,20 @@ static int cam_actuator_platform_component_bind(struct device *dev,
 
 	platform_set_drvdata(pdev, a_ctrl);
 	a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
+
+	/* xiaomi add begin */
+	INIT_LIST_HEAD(&(a_ctrl->i2c_data.parklens_settings.list_head));
+	parklens_atomic_set(&(a_ctrl->parklens_ctrl.parklens_opcode),
+			    ENTER_PARKLENS_WITH_POWERDOWN);
+	parklens_atomic_set(&(a_ctrl->parklens_ctrl.exit_result), PARKLENS_ENTER);
+	parklens_atomic_set(&(a_ctrl->parklens_ctrl.parklens_state), PARKLENS_INVALID);
+	a_ctrl->parklens_ctrl.parklens_thread = NULL;
+	/* xiaomi add end */
+
 	CAM_DBG(CAM_ACTUATOR, "Component bound successfully %d",
 		a_ctrl->soc_info.index);
 
 	return rc;
-
 free_mem:
 	kfree(a_ctrl->i2c_data.per_frame);
 free_soc:

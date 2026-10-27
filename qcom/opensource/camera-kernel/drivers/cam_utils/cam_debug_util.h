@@ -18,40 +18,41 @@ extern unsigned int debug_priority;
 
 /* Module IDs used for debug logging */
 enum cam_debug_module_id {
-	CAM_CDM,                 /* bit 0 */
-	CAM_CORE,                /* bit 1 */
-	CAM_CPAS,                /* bit 2 */
-	CAM_ISP,                 /* bit 3 */
-	CAM_CRM,                 /* bit 4 */
-	CAM_SENSOR,              /* bit 5 */
-	CAM_SMMU,                /* bit 6 */
-	CAM_SYNC,                /* bit 7 */
-	CAM_ICP,                 /* bit 8 */
-	CAM_JPEG,                /* bit 9 */
-	CAM_FD,                  /* bit 10 */
-	CAM_LRME,                /* bit 11 */
-	CAM_FLASH,               /* bit 12 */
-	CAM_ACTUATOR,            /* bit 13 */
-	CAM_CCI,                 /* bit 14 */
-	CAM_CSIPHY,              /* bit 15 */
-	CAM_EEPROM,              /* bit 16 */
-	CAM_UTIL,                /* bit 17 */
-	CAM_HFI,                 /* bit 18 */
-	CAM_CTXT,                /* bit 19 */
-	CAM_OIS,                 /* bit 20 */
-	CAM_RES,                 /* bit 21 */
-	CAM_MEM,                 /* bit 22 */
-	CAM_IRQ_CTRL,            /* bit 23 */
-	CAM_REQ,                 /* bit 24 */
-	CAM_PERF,                /* bit 25 */
-	CAM_CUSTOM,              /* bit 26 */
-	CAM_PRESIL,              /* bit 27 */
-	CAM_OPE,                 /* bit 28 */
-	CAM_IO_ACCESS,           /* bit 29 */
-	CAM_SFE,                 /* bit 30 */
-	CAM_CRE,                 /* bit 31 */
-	CAM_PRESIL_CORE,         /* bit 32 */
-	CAM_TPG,                 /* bit 33 */
+	CAM_CDM, /* bit 0 */
+	CAM_CORE, /* bit 1 */
+	CAM_CPAS, /* bit 2 */
+	CAM_ISP, /* bit 3 */
+	CAM_CRM, /* bit 4 */
+	CAM_SENSOR, /* bit 5 */
+	CAM_SMMU, /* bit 6 */
+	CAM_SYNC, /* bit 7 */
+	CAM_ICP, /* bit 8 */
+	CAM_JPEG, /* bit 9 */
+	CAM_FD, /* bit 10 */
+	CAM_LRME, /* bit 11 */
+	CAM_FLASH, /* bit 12 */
+	CAM_ACTUATOR, /* bit 13 */
+	CAM_CCI, /* bit 14 */
+	CAM_CSIPHY, /* bit 15 */
+	CAM_EEPROM, /* bit 16 */
+	CAM_UTIL, /* bit 17 */
+	CAM_HFI, /* bit 18 */
+	CAM_CTXT, /* bit 19 */
+	CAM_OIS, /* bit 20 */
+	CAM_RES, /* bit 21 */
+	CAM_MEM, /* bit 22 */
+	CAM_IRQ_CTRL, /* bit 23 */
+	CAM_REQ, /* bit 24 */
+	CAM_PERF, /* bit 25 */
+	CAM_CUSTOM, /* bit 26 */
+	CAM_PRESIL, /* bit 27 */
+	CAM_OPE, /* bit 28 */
+	CAM_IO_ACCESS, /* bit 29 */
+	CAM_SFE, /* bit 30 */
+	CAM_CRE, /* bit 31 */
+	CAM_PRESIL_CORE, /* bit 32 */
+	CAM_TPG, /* bit 33 */
+	CAM_ISPV3, /* bit 34 */
 	CAM_DBG_MOD_MAX
 };
 
@@ -75,40 +76,41 @@ enum cam_debug_priority {
 };
 
 static const char *cam_debug_mod_name[CAM_DBG_MOD_MAX] = {
-	[CAM_CDM]         = "CAM-CDM",
-	[CAM_CORE]        = "CAM-CORE",
-	[CAM_CRM]         = "CAM-CRM",
-	[CAM_CPAS]        = "CAM-CPAS",
-	[CAM_ISP]         = "CAM-ISP",
-	[CAM_SENSOR]      = "CAM-SENSOR",
-	[CAM_SMMU]        = "CAM-SMMU",
-	[CAM_SYNC]        = "CAM-SYNC",
-	[CAM_ICP]         = "CAM-ICP",
-	[CAM_JPEG]        = "CAM-JPEG",
-	[CAM_FD]          = "CAM-FD",
-	[CAM_LRME]        = "CAM-LRME",
-	[CAM_FLASH]       = "CAM-FLASH",
-	[CAM_ACTUATOR]    = "CAM-ACTUATOR",
-	[CAM_CCI]         = "CAM-CCI",
-	[CAM_CSIPHY]      = "CAM-CSIPHY",
-	[CAM_EEPROM]      = "CAM-EEPROM",
-	[CAM_UTIL]        = "CAM-UTIL",
-	[CAM_CTXT]        = "CAM-CTXT",
-	[CAM_HFI]         = "CAM-HFI",
-	[CAM_OIS]         = "CAM-OIS",
-	[CAM_IRQ_CTRL]    = "CAM-IRQ-CTRL",
-	[CAM_MEM]         = "CAM-MEM",
-	[CAM_PERF]        = "CAM-PERF",
-	[CAM_REQ]         = "CAM-REQ",
-	[CAM_CUSTOM]      = "CAM-CUSTOM",
-	[CAM_OPE]         = "CAM-OPE",
-	[CAM_PRESIL]      = "CAM-PRESIL",
-	[CAM_RES]         = "CAM-RES",
-	[CAM_IO_ACCESS]   = "CAM-IO-ACCESS",
-	[CAM_SFE]         = "CAM-SFE",
-	[CAM_CRE]         = "CAM-CRE",
+	[CAM_CDM] = "CAM-CDM",
+	[CAM_CORE] = "CAM-CORE",
+	[CAM_CRM] = "CAM-CRM",
+	[CAM_CPAS] = "CAM-CPAS",
+	[CAM_ISP] = "CAM-ISP",
+	[CAM_SENSOR] = "CAM-SENSOR",
+	[CAM_SMMU] = "CAM-SMMU",
+	[CAM_SYNC] = "CAM-SYNC",
+	[CAM_ICP] = "CAM-ICP",
+	[CAM_JPEG] = "CAM-JPEG",
+	[CAM_FD] = "CAM-FD",
+	[CAM_LRME] = "CAM-LRME",
+	[CAM_FLASH] = "CAM-FLASH",
+	[CAM_ACTUATOR] = "CAM-ACTUATOR",
+	[CAM_CCI] = "CAM-CCI",
+	[CAM_CSIPHY] = "CAM-CSIPHY",
+	[CAM_EEPROM] = "CAM-EEPROM",
+	[CAM_UTIL] = "CAM-UTIL",
+	[CAM_CTXT] = "CAM-CTXT",
+	[CAM_HFI] = "CAM-HFI",
+	[CAM_OIS] = "CAM-OIS",
+	[CAM_IRQ_CTRL] = "CAM-IRQ-CTRL",
+	[CAM_MEM] = "CAM-MEM",
+	[CAM_PERF] = "CAM-PERF",
+	[CAM_REQ] = "CAM-REQ",
+	[CAM_CUSTOM] = "CAM-CUSTOM",
+	[CAM_OPE] = "CAM-OPE",
+	[CAM_PRESIL] = "CAM-PRESIL",
+	[CAM_RES] = "CAM-RES",
+	[CAM_IO_ACCESS] = "CAM-IO-ACCESS",
+	[CAM_SFE] = "CAM-SFE",
+	[CAM_CRE] = "CAM-CRE",
 	[CAM_PRESIL_CORE] = "CAM-CORE-PRESIL",
-	[CAM_TPG]         = "CAM-TPG",
+	[CAM_TPG] = "CAM-TPG",
+	[CAM_ISPV3] = "CAM-ISPV3",
 };
 
 #define ___CAM_DBG_MOD_NAME(module_id)                                      \
@@ -146,7 +148,8 @@ __builtin_choose_expr(((module_id) == CAM_SFE), "CAM-SFE",                  \
 __builtin_choose_expr(((module_id) == CAM_CRE), "CAM-CRE",                  \
 __builtin_choose_expr(((module_id) == CAM_PRESIL_CORE), "CAM-CORE-PRESIL",  \
 __builtin_choose_expr(((module_id) == CAM_TPG), "CAM-TPG",                  \
-"CAMERA"))))))))))))))))))))))))))))))))))
+__builtin_choose_expr(((module_id) == CAM_ISPV3), "CAM-ISPV3",              \
+"CAMERA")))))))))))))))))))))))))))))))))))
 
 #define CAM_DBG_MOD_NAME(module_id) \
 ((module_id < CAM_DBG_MOD_MAX) ? cam_debug_mod_name[module_id] : "CAMERA")

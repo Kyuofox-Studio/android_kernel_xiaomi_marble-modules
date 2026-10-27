@@ -269,7 +269,6 @@ int cam_hw_cdm_bl_fifo_pending_bl_rb_in_fifo(
 
 	CAM_DBG(CAM_CDM, "Number of pending bl entries:%d in fifo: %d",
 			*pending_bl_req, fifo_id);
-
 end:
 	return rc;
 }
@@ -672,7 +671,6 @@ int cam_hw_cdm_set_cdm_core_cfg(struct cam_hw_info *cdm_hw)
 		rc = -EIO;
 		goto end;
 	}
-
 end:
 	return rc;
 }
@@ -748,7 +746,6 @@ int cam_hw_cdm_wait_for_bl_fifo(
 			break;
 		}
 	} while (1);
-
 end:
 
 	return rc;
@@ -884,7 +881,6 @@ int cam_hw_cdm_submit_gen_irq(
 	}
 
 	trace_cam_log_event("CDM_START", "CDM_START_IRQ", req->data->cookie, 0);
-
 end:
 	return rc;
 }
@@ -930,7 +926,6 @@ int cam_hw_cdm_submit_debug_gen_irq(
 		rc = -EIO;
 		goto end;
 	}
-
 end:
 	return rc;
 }
@@ -1146,7 +1141,6 @@ int cam_hw_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 	}
 	mutex_unlock(&client->lock);
 	mutex_unlock(&core->bl_fifo[fifo_idx].fifo_lock);
-
 end:
 	return rc;
 
@@ -1402,7 +1396,6 @@ static void cam_hw_cdm_iommu_fault_handler(struct cam_smmu_pf_info *pf_info)
 			else
 				return;
 		}
-
 handle_cdm_pf:
 		set_bit(CAM_CDM_ERROR_HW_STATUS, &core->cdm_status);
 		mutex_lock(&cdm_hw->hw_mutex);
@@ -1874,26 +1867,39 @@ int cam_hw_cdm_handle_error(
 	return rc;
 }
 
-int cam_hw_cdm_hang_detect(
-	struct cam_hw_info *cdm_hw,
-	uint32_t            handle)
+int cam_hw_cdm_hang_detect(struct cam_hw_info *cdm_hw, u32 handle, u32 module_id)
 {
 	struct cam_cdm *cdm_core = NULL;
 	struct cam_hw_soc_info *soc_info;
 	int i, rc = -1;
+	u32 fifo_idx;
 
+	fifo_idx = CAM_CDM_GET_BLFIFO_IDX(handle);
 	cdm_core = (struct cam_cdm *)cdm_hw->core_info;
 	soc_info = &cdm_hw->soc_info;
 
-	for (i = 0; i < cdm_core->offsets->reg_data->num_bl_fifo; i++)
-		if (atomic_read(&cdm_core->bl_fifo[i].work_record)) {
-			CAM_WARN(CAM_CDM,
-				"fifo: %d Workqueue got delayed for %s%u, work_record :%u",
-				i, soc_info->label_name, soc_info->index,
-				atomic_read(&cdm_core->bl_fifo[i].work_record));
+	if (module_id == CAM_ISP) {
+		if (fifo_idx >= cdm_core->offsets->reg_data->num_bl_fifo)
+			return -EINVAL;
+
+		if (atomic_read(&cdm_core->bl_fifo[fifo_idx].work_record)) {
+			CAM_WARN(CAM_CDM, "Workqueue got delayed for %s%u, work_record: %u",
+				 soc_info->label_name, soc_info->index,
+				 atomic_read(&cdm_core->bl_fifo[fifo_idx].work_record));
 			rc = 0;
-			break;
 		}
+	} else {
+		for (i = 0; i < cdm_core->offsets->reg_data->num_bl_fifo; i++) {
+			if (atomic_read(&cdm_core->bl_fifo[i].work_record)) {
+				CAM_WARN(CAM_CDM,
+					 "fifo: %d Workqueue got delayed for %s%u, work_record :%u",
+					 i, soc_info->label_name, soc_info->index,
+					 atomic_read(&cdm_core->bl_fifo[i].work_record));
+				rc = 0;
+				break;
+			}
+		}
+	}
 
 	return rc;
 }
@@ -1979,7 +1985,6 @@ int cam_hw_cdm_get_cdm_config(struct cam_hw_info *cdm_hw)
 		rc = -EINVAL;
 		goto disable_platform_resource;
 	}
-
 disable_platform_resource:
 	rc = cam_soc_util_disable_platform_resource(soc_info, true, true);
 
@@ -2057,7 +2062,6 @@ int cam_hw_cdm_init(void *hw_priv,
 		rc = 0;
 		goto end;
 	}
-
 disable_return:
 	rc = -EIO;
 	flags = cam_hw_util_hw_lock_irqsave(cdm_hw);
@@ -2382,7 +2386,6 @@ static int cam_hw_cdm_component_bind(struct device *dev,
 	CAM_DBG(CAM_CDM, "%s component bound successfully", cdm_core->name);
 
 	return rc;
-
 cpas_stop:
 	if (cam_cpas_stop(cdm_core->cpas_handle))
 		CAM_ERR(CAM_CDM, "CPAS stop failed");

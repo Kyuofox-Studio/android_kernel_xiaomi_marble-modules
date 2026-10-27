@@ -32,6 +32,7 @@
 
 /* maximum number of device block */
 #define CAM_SOC_MAX_BLOCK           7
+#define CAM_PHY_MAX_CTRL_NO 8
 
 /* maximum number of device base */
 #define CAM_SOC_MAX_BASE            CAM_SOC_MAX_BLOCK
@@ -273,6 +274,7 @@ struct cam_hw_soc_info {
 	int32_t                         cam_cx_ipeak_bit;
 
 	void                           *soc_private;
+	uint8_t phy_cfg_current_index[CAM_PHY_MAX_CTRL_NO];
 
 	int32_t                         aggregate_clk[CAM_SOC_MAX_CLK][2];
 	uint32_t                        aggregate_clk_mask;

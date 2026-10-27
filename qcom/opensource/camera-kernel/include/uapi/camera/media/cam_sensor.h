@@ -52,7 +52,8 @@ enum cam_actuator_packet_opcodes {
 	CAM_ACTUATOR_PACKET_OPCODE_INIT,
 	CAM_ACTUATOR_PACKET_AUTO_MOVE_LENS,
 	CAM_ACTUATOR_PACKET_MANUAL_MOVE_LENS,
-	CAM_ACTUATOR_PACKET_OPCODE_READ
+	CAM_ACTUATOR_PACKET_OPCODE_READ,
+	CAM_ACTUATOR_PACKET_OPCODE_PARKLENS
 };
 
 enum cam_eeprom_packet_opcodes {
@@ -105,6 +106,11 @@ enum cam_sensor_packet_opcodes {
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_PROBE_V2,
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_REG_BANK_UNLOCK,
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_REG_BANK_LOCK,
+	CAM_SENSOR_PACKET_OPCODE_SENSOR_ISPV3_POWERUP,
+	CAM_SENSOR_PACKET_OPCODE_SENSOR_ISPV3_POWERDOWN,
+	/* Older Xiaomi camera HALs use 9 and 10 for ISPV3 power control. */
+	CAM_SENSOR_PACKET_OPCODE_SENSOR_ISPV3_POWERUP_LEGACY = 9,
+	CAM_SENSOR_PACKET_OPCODE_SENSOR_ISPV3_POWERDOWN_LEGACY = 10,
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_RESCONFIG = 126,
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP = 127,
 };
@@ -297,12 +303,24 @@ struct cam_cmd_i2c_info {
  * @coeff           :    OIS FW coeff register address
  * @pheripheral     :    OIS pheripheral
  * @memory          :    OIS memory
+ * @fw_addr_type    :    Firmware register address width
+ * @is_addr_increase:    Increment register address between firmware chunks
+ * @is_addr_indata  :    Firmware data contains register addresses
+ * @fwversion       :    Firmware version
+ * @fwchecksumsize  :    Firmware checksum length
+ * @fwchecksum      :    Firmware checksum
  */
 struct cam_ois_opcode {
 	__u32 prog;
 	__u32 coeff;
 	__u32 pheripheral;
 	__u32 memory;
+	__u8 fw_addr_type;
+	__u8 is_addr_increase;
+	__u8 is_addr_indata;
+	__u8 fwversion;
+	__u32 fwchecksumsize;
+	__u32 fwchecksum;
 } __attribute__((packed));
 
 /**

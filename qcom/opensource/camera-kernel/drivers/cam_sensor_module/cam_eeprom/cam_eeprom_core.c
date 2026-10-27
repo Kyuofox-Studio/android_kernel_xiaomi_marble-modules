@@ -15,6 +15,7 @@
 #include "cam_packet_util.h"
 
 #define MAX_READ_SIZE  0x7FFFF
+#define MAX_RETRY_TIMES 3
 
 /**
  * cam_eeprom_read_memory() - read map data into buffer
@@ -928,7 +929,6 @@ static int32_t cam_eeprom_parse_write_memory_packet(
 		cam_mem_put_cpu_buf(cmd_desc[i].mem_handle);
 	}
 	return rc;
-
 end:
 	cam_mem_put_cpu_buf(cmd_desc[i].mem_handle);
 	return rc;
@@ -1103,7 +1103,6 @@ static int32_t cam_eeprom_init_pkt_parser(struct cam_eeprom_ctrl_t *e_ctrl,
 		cam_mem_put_cpu_buf(cmd_desc[i].mem_handle);
 	}
 	return rc;
-
 end:
 	cam_mem_put_cpu_buf(cmd_desc[i].mem_handle);
 	return rc;
@@ -1241,7 +1240,6 @@ static int32_t cam_eeprom_write(struct cam_eeprom_ctrl_t *e_ctrl)
 		}
 		}
 	}
-
 del_req:
 	delete_eeprom_request(i2c_set);
 	return rc;
@@ -1257,6 +1255,7 @@ del_req:
 static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 {
 	int32_t                         rc = 0;
+	int i, power_down_rc;
 	struct cam_control             *ioctl_ctrl = NULL;
 	struct cam_config_dev_cmd       dev_config;
 	uintptr_t                       generic_pkt_addr;
@@ -1345,23 +1344,43 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 			}
 		}
 
-		rc = cam_eeprom_power_up(e_ctrl,
-			&soc_private->power_info);
-		if (rc) {
-			CAM_ERR(CAM_EEPROM, "failed rc %d", rc);
+		for (i = 0; i < MAX_RETRY_TIMES; i++) {
+			rc = cam_eeprom_power_up(e_ctrl, &soc_private->power_info);
+			if (rc) {
+				CAM_ERR(CAM_EEPROM, "cam_eeprom_power_up failed at attempt %d: %d",
+					i + 1, rc);
+				if (i + 1 < MAX_RETRY_TIMES)
+					usleep_range(10 * 1000, 11 * 1000);
+				continue;
+			}
+
+			e_ctrl->cam_eeprom_state = CAM_EEPROM_CONFIG;
+			rc = cam_eeprom_read_memory(e_ctrl, &e_ctrl->cal_data);
+			if (rc) {
+				CAM_ERR(CAM_EEPROM,
+					"cam_eeprom_read_memory failed at attempt %d: %d", i + 1,
+					rc);
+				power_down_rc = cam_eeprom_power_down(e_ctrl);
+				if (power_down_rc) {
+					rc = power_down_rc;
+					break;
+				}
+				e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
+				if (i + 1 < MAX_RETRY_TIMES)
+					usleep_range(10 * 1000, 11 * 1000);
+			} else {
+				rc = cam_eeprom_get_cal_data(e_ctrl, csl_packet);
+				power_down_rc = cam_eeprom_power_down(e_ctrl);
+				if (!power_down_rc)
+					e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
+				if (!rc)
+					rc = power_down_rc;
+				break;
+			}
+		}
+		if (rc)
 			goto memdata_free;
-		}
 
-		e_ctrl->cam_eeprom_state = CAM_EEPROM_CONFIG;
-		rc = cam_eeprom_read_memory(e_ctrl, &e_ctrl->cal_data);
-		if (rc) {
-			CAM_ERR(CAM_EEPROM,
-				"read_eeprom_memory failed");
-			goto power_down;
-		}
-
-		rc = cam_eeprom_get_cal_data(e_ctrl, csl_packet);
-		rc = cam_eeprom_power_down(e_ctrl);
 		e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
 		vfree(e_ctrl->cal_data.mapdata);
 		vfree(e_ctrl->cal_data.map);
@@ -1435,20 +1454,20 @@ end:
 put_ref:
 	cam_mem_put_cpu_buf(dev_config.packet_handle);
 	return rc;
-power_down:
-	cam_eeprom_power_down(e_ctrl);
 memdata_free:
 	vfree(e_ctrl->cal_data.mapdata);
 error:
 	cam_mem_put_cpu_buf(dev_config.packet_handle);
-	kfree(power_info->power_setting);
-	kfree(power_info->power_down_setting);
-	power_info->power_setting = NULL;
-	power_info->power_down_setting = NULL;
+	/* Keep the power sequence for a later release if power-down failed. */
+	if (e_ctrl->cam_eeprom_state != CAM_EEPROM_CONFIG) {
+		kfree(power_info->power_setting);
+		kfree(power_info->power_down_setting);
+		power_info->power_setting = NULL;
+		power_info->power_down_setting = NULL;
+	}
 	vfree(e_ctrl->cal_data.map);
 	e_ctrl->cal_data.num_data = 0;
 	e_ctrl->cal_data.num_map = 0;
-	e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
 	cam_common_mem_free(csl_packet);
 	return rc;
 }
@@ -1544,6 +1563,23 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
 		break;
 	case CAM_RELEASE_DEV:
+		if (e_ctrl->cam_eeprom_state == CAM_EEPROM_CONFIG) {
+			struct cam_eeprom_soc_private *soc_private = e_ctrl->soc_info.soc_private;
+			struct cam_sensor_power_ctrl_t *power_info = &soc_private->power_info;
+
+			rc = cam_eeprom_power_down(e_ctrl);
+			if (rc) {
+				CAM_ERR(CAM_EEPROM, "EEPROM power down failed: %d", rc);
+				goto release_mutex;
+			}
+			e_ctrl->cam_eeprom_state = CAM_EEPROM_ACQUIRE;
+			kfree(power_info->power_setting);
+			kfree(power_info->power_down_setting);
+			power_info->power_setting = NULL;
+			power_info->power_down_setting = NULL;
+			power_info->power_setting_size = 0;
+			power_info->power_down_setting_size = 0;
+		}
 		if (e_ctrl->cam_eeprom_state != CAM_EEPROM_ACQUIRE) {
 			rc = -EINVAL;
 			CAM_WARN(CAM_EEPROM,
@@ -1570,6 +1606,10 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		e_ctrl->cam_eeprom_state = CAM_EEPROM_INIT;
 		break;
 	case CAM_CONFIG_DEV:
+		if (e_ctrl->cam_eeprom_state == CAM_EEPROM_CONFIG) {
+			rc = -EBUSY;
+			goto release_mutex;
+		}
 		rc = cam_eeprom_pkt_parse(e_ctrl, arg);
 		if (rc) {
 			CAM_ERR(CAM_EEPROM, "Failed in eeprom pkt Parsing");
@@ -1580,7 +1620,6 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		CAM_DBG(CAM_EEPROM, "invalid opcode");
 		break;
 	}
-
 release_mutex:
 	mutex_unlock(&(e_ctrl->eeprom_mutex));
 

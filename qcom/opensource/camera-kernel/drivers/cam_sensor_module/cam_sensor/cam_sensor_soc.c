@@ -12,6 +12,9 @@
 #include <cam_req_mgr_util.h>
 #include "cam_sensor_soc.h"
 #include "cam_soc_util.h"
+#if IS_REACHABLE(CONFIG_MI_HARDWARE_ID)
+#include "hwid.h"
+#endif
 
 int32_t cam_sensor_get_sub_module_index(struct device_node *of_node,
 	struct cam_sensor_board_info *s_info)
@@ -20,6 +23,10 @@ int32_t cam_sensor_get_sub_module_index(struct device_node *of_node,
 	uint32_t val = 0;
 	struct device_node *src_node = NULL;
 	struct cam_sensor_board_info *sensor_info;
+#if IS_REACHABLE(CONFIG_MI_HARDWARE_ID)
+	uint32_t hw_platform_ver;
+	uint32_t hw_country_ver;
+#endif
 
 	sensor_info = s_info;
 
@@ -71,7 +78,23 @@ int32_t cam_sensor_get_sub_module_index(struct device_node *of_node,
 		of_node_put(src_node);
 	}
 
-	src_node = of_parse_phandle(of_node, "led-flash-src", 0);
+	src_node = NULL;
+#if IS_REACHABLE(CONFIG_MI_HARDWARE_ID)
+	hw_country_ver = get_hw_country_version();
+	hw_platform_ver = get_hw_version_platform();
+
+	if (HARDWARE_PROJECT_L9S == hw_platform_ver &&
+	    (((uint32_t)CountryGlobal == hw_country_ver) ||
+	     ((uint32_t)CountryIndia == hw_country_ver))) {
+		src_node = of_parse_phandle(of_node, "led-flash-src-gl", 0);
+		CAM_DBG(CAM_SENSOR, "parse phandle  led-flash-src-gl");
+	}
+#endif
+	if (!src_node) {
+		src_node = of_parse_phandle(of_node, "led-flash-src", 0);
+		CAM_DBG(CAM_SENSOR, "parse phandle  led-flash-src");
+	}
+
 	if (!src_node) {
 		CAM_DBG(CAM_SENSOR, " src_node NULL");
 	} else {
@@ -269,7 +292,6 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 		s_ctrl->hw_no_ops = true;
 
 	return rc;
-
 FREE_SENSOR_DATA:
 	kfree(sensordata);
 	s_ctrl->sensordata = NULL;

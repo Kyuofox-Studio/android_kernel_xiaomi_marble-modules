@@ -26,6 +26,7 @@
 #include "cam_cdm_util.h"
 #include "cam_common_util.h"
 #include "cam_subdev.h"
+#include "cam_csiphy_core.h"
 
 /* CSIPHY TPG VC/DT values */
 #define CAM_IFE_CPHY_TPG_VC_VAL                         0x0
@@ -35,7 +36,7 @@
 #define CAM_IFE_CSID_TIMEOUT_SLEEP_US                  1000
 #define CAM_IFE_CSID_TIMEOUT_ALL_US                    100000
 
-#define CAM_IFE_CSID_RESET_TIMEOUT_MS                  100
+#define CAM_IFE_CSID_RESET_TIMEOUT_MS 600
 
 /*
  * Constant Factors needed to change QTimer ticks to nanoseconds
@@ -1068,6 +1069,18 @@ static int cam_ife_csid_ver2_rx_err_bottom_half(
 		}
 
 		if (irq_status & IFE_CSID_VER2_RX_ERROR_CRC) {
+			const char *name = soc_info->dev->of_node->name;
+			size_t name_len = strlen(name);
+			u8 phy_index;
+
+			if (name_len && !kstrtou8(name + name_len - 1, 0, &phy_index) &&
+			    phy_index < CAM_PHY_MAX_CTRL_NO) {
+				u8 *choice = &soc_info->phy_cfg_current_index[phy_index];
+
+				if (*choice < 0xf)
+					(*choice)++;
+				XM_MIPI_KMD_SET_CTRL_FLAG_VAL(phy_index, *choice);
+			}
 			event_type |= CAM_ISP_HW_ERROR_CSID_PKT_PAYLOAD_CORRUPTED;
 			long_pkt_ftr_val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
 				csi2_reg->captured_long_pkt_ftr_addr);
@@ -1958,7 +1971,6 @@ static int cam_ife_csid_ver2_internal_reset(
 		val = csid_reg->cmn_reg->rst_cmd_sw_reset_complete_val;
 
 	cam_io_w_mb(val, mem_base + csid_reg->cmn_reg->reset_cmd_addr);
-
 wait_only:
 
 	rc = cam_ife_csid_ver2_wait_for_reset(csid_hw);
@@ -2316,7 +2328,6 @@ static int cam_ife_csid_hw_ver2_config_path_data(
 			goto end;
 		}
 	}
-
 end:
 	return rc;
 }
@@ -2710,7 +2721,6 @@ int cam_ife_csid_ver2_reserve(void *hw_priv,
 		res->res_state, cid);
 
 	return rc;
-
 release:
 	cam_ife_csid_cid_release(&csid_hw->cid_data[cid],
 		csid_hw->hw_intf->hw_idx,
@@ -3395,7 +3405,6 @@ static int cam_ife_csid_ver2_program_rdi_path(
 	}
 
 	*rup_aup_mask |= path_reg->rup_aup_mask;
-
 end:
 	return rc;
 }
@@ -4054,10 +4063,8 @@ static int cam_ife_csid_ver2_enable_core(struct cam_ife_csid_ver2_hw *csid_hw)
 	csid_hw->hw_info->hw_state = CAM_HW_STATE_POWER_UP;
 
 	return rc;
-
 disable_res:
 	cam_ife_csid_disable_soc_resources(soc_info);
-
 err:
 	CAM_ERR(CAM_ISP, "CSID[%d] init hw fail rc %d",
 		csid_hw->hw_intf->hw_idx, rc);
@@ -4163,14 +4170,14 @@ static int cam_ife_csid_ver2_enable_hw(
 		rc = -EINVAL;
 		goto unsubscribe_top_err;
 	}
-
+#if IS_ENABLED(ZIZHAN_CAMERA)
+	memset(&csid_hw->timestamp, 0, sizeof(struct cam_ife_csid_timestamp));
+#endif
 	csid_hw->flags.device_enabled = true;
 	csid_hw->flags.fatal_err_detected = false;
 	CAM_DBG(CAM_ISP, "CSID:%d CSID HW version: 0x%x",
 		csid_hw->hw_intf->hw_idx, val);
 	return 0;
-
-
 unsubscribe_top_err:
 	cam_irq_controller_unsubscribe_irq(csid_hw->csid_irq_controller,
 		csid_hw->top_err_irq_handle);
@@ -4349,7 +4356,6 @@ int cam_ife_csid_ver2_deinit_hw(void *hw_priv,
 			csid_hw->hw_intf->hw_idx, res->res_type);
 		break;
 	}
-
 disable_hw:
 	res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
 	cam_ife_csid_ver2_disable_core(csid_hw);
@@ -5243,7 +5249,6 @@ static int cam_ife_csid_ver2_set_discard_frame_cfg(
 			csid_hw->hw_intf->hw_idx, discard_config->num_frames, res->res_name,
 			atomic_read(&csid_hw->discard_frame_per_path));
 	}
-
 end:
 	return 0;
 }
@@ -5578,7 +5583,6 @@ static int cam_ife_csid_ver2_hw_init_path_res(
 	}
 
 	return rc;
-
 free_res:
 	cam_ife_csid_ver2_free_res(csid_hw);
 	return rc;

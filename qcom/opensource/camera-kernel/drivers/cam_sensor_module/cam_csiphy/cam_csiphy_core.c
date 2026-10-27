@@ -55,6 +55,8 @@ struct g_csiphy_data {
 static struct g_csiphy_data g_phy_data[MAX_CSIPHY] = {{0, 0}};
 static int active_csiphy_hw_cnt;
 
+uint64_t xm_mipi_kmd_setting;
+
 void cam_csiphy_update_auxiliary_mask(struct csiphy_device *csiphy_dev)
 {
 	if (!csiphy_dev) {
@@ -847,7 +849,6 @@ end:
 put_buf:
 	cam_mem_put_cpu_buf(cfg_dev->packet_handle);
 	return rc;
-
 reset_settings:
 	cam_csiphy_reset_phyconfig_param(csiphy_dev, index);
 	cam_mem_put_cpu_buf(cfg_dev->packet_handle);
@@ -951,6 +952,30 @@ static int cam_csiphy_cphy_get_data_rate_lane_idx(
 	return rc;
 }
 
+static int cam_csiphy_cphy_reconfig_work(struct csiphy_device *csiphy_device,
+					 struct data_rate_reg_info_t *drate_settings)
+{
+	const char *name = csiphy_device->device_name;
+	u8 phy_index, phy_flag, phy_val;
+	size_t name_len = strlen(name);
+
+	if (!csiphy_device->device_has_customized || !drate_settings->this_setting_max_choice ||
+	    strcmp(csiphy_device->phy_dts_name, "qcom,csiphy-v2.1.3-m16t"))
+		return 0;
+
+	if (!name_len || kstrtou8(name + name_len - 1, 0, &phy_index) ||
+	    phy_index >= CAM_PHY_MAX_CTRL_NO)
+		return 0;
+
+	phy_flag = XM_MIPI_KMD_GET_CTRL_FLAG(phy_index);
+	phy_val = XM_MIPI_KMD_GET_CTRL_VAL(phy_index);
+	if (phy_flag && phy_val < drate_settings->this_setting_max_choice &&
+	    phy_val != drate_settings->this_setting_current_choice)
+		return 1;
+
+	return 0;
+}
+
 static int cam_csiphy_cphy_data_rate_config(
 	struct csiphy_device *csiphy_device, int32_t idx)
 {
@@ -1006,6 +1031,8 @@ static int cam_csiphy_cphy_data_rate_config(
 				data_rate_idx, supported_phy_bw, required_phy_data_rate);
 			continue;
 		}
+		if (cam_csiphy_cphy_reconfig_work(csiphy_device, &drate_settings[data_rate_idx]))
+			continue;
 
 		CAM_DBG(CAM_CSIPHY, "table[%d] BW : %llu Selected",
 			data_rate_idx, supported_phy_bw);
@@ -1372,7 +1399,6 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 		cam_csiphy_reset(csiphy_dev);
 		cam_soc_util_disable_platform_resource(soc_info, true, true);
 
-		cam_cpas_stop(csiphy_dev->cpas_handle);
 		csiphy_dev->csiphy_state = CAM_CSIPHY_ACQUIRE;
 	}
 
@@ -1388,6 +1414,8 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 		}
 	}
 
+	/* A failed start may leave a CPAS vote in the acquired state. */
+	cam_cpas_stop(csiphy_dev->cpas_handle);
 	csiphy_dev->ref_count = 0;
 	csiphy_dev->acquire_count = 0;
 	csiphy_dev->start_dev_count = 0;
@@ -2507,14 +2535,12 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 
 	mutex_unlock(&csiphy_dev->mutex);
 	return rc;
-
 hw_cnt_decrement:
 	if (csiphy_dev->prgm_cmn_reg_across_csiphy) {
 		mutex_lock(&active_csiphy_cnt_mutex);
 		active_csiphy_hw_cnt--;
 		mutex_unlock(&active_csiphy_cnt_mutex);
 	}
-
 cpas_stop:
 	if (cam_csiphy_cpas_ops(csiphy_dev->cpas_handle, false))
 		CAM_ERR(CAM_CSIPHY, "cpas stop failed");
