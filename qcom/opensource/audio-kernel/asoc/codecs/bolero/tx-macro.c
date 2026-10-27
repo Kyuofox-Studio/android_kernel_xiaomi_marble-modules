@@ -573,12 +573,10 @@ static void tx_macro_tx_hpf_corner_freq_callback(struct work_struct *work)
 		snd_soc_component_update_bits(component,
 				dec_cfg_reg, TX_HPF_CUT_OFF_FREQ_MASK,
 				hpf_cut_off_freq << 5);
-		snd_soc_component_update_bits(component, hpf_gate_reg,
-						0x02, 0x02);
+		snd_soc_component_update_bits(component, hpf_gate_reg, 0x03, 0x02);
 		/* Minimum 1 clk cycle delay is required as per HW spec */
 		usleep_range(1000, 1010);
-		snd_soc_component_update_bits(component, hpf_gate_reg,
-						0x02, 0x00);
+		snd_soc_component_update_bits(component, hpf_gate_reg, 0x03, 0x01);
 	}
 }
 
@@ -776,7 +774,6 @@ static inline int tx_macro_path_get(const char *wname,
 	if (ret < 0)
 		pr_err("%s: Invalid tx path = %s\n",
 			__func__, w_name);
-
 err:
 	kfree(w_name);
 	return ret;
@@ -2831,7 +2828,6 @@ tx_clk:
 		}
 	}
 	return 0;
-
 done:
 	if (!clk_tx_ret)
 		bolero_clk_rsc_request_clock(tx_priv->dev,
@@ -2913,7 +2909,6 @@ static int tx_macro_clk_switch(struct snd_soc_component *component, int clk_src)
 	} else {
 		ret = -EBUSY;
 	}
-
 ret:
 	return ret;
 }
@@ -3072,7 +3067,6 @@ static int tx_macro_validate_dmic_sample_rate(u32 dmic_sample_rate,
 		__func__, div_factor, mclk_rate);
 
 	return dmic_sample_rate;
-
 undefined_rate:
 	dev_dbg(tx_priv->dev, "%s: Invalid rate %d, for mclk %d\n",
 		 __func__, dmic_sample_rate, mclk_rate);

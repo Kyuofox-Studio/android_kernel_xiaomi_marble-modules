@@ -150,8 +150,15 @@ int lpi_pinctrl_runtime_suspend(struct device *dev);
 static int lpi_gpio_read(struct lpi_gpio_pad *pad, unsigned int addr)
 {
 	int ret = 0;
-	struct lpi_gpio_state *state = dev_get_drvdata(lpi_dev);
+	struct lpi_gpio_state *state;
 	static DEFINE_RATELIMIT_STATE(rtl, 1 * HZ, 1);
+	if (lpi_dev == NULL)
+		return 0;
+	state = dev_get_drvdata(lpi_dev);
+
+	if (!lpi_dev)
+		return 0;
+	state = dev_get_drvdata(lpi_dev);
 
 	if (!lpi_dev_up) {
 		if (__ratelimit(&rtl))
@@ -172,7 +179,6 @@ static int lpi_gpio_read(struct lpi_gpio_pad *pad, unsigned int addr)
 	ret = ioread32(pad->base + pad->offset + addr);
 	if (ret < 0)
 		pr_err("%s: read 0x%x failed\n", __func__, addr);
-
 err:
 	mutex_unlock(&state->core_hw_vote_lock);
 	pm_runtime_mark_last_busy(lpi_dev);
@@ -183,9 +189,16 @@ err:
 static int lpi_gpio_write(struct lpi_gpio_pad *pad, unsigned int addr,
 			  unsigned int val)
 {
-	struct lpi_gpio_state *state = dev_get_drvdata(lpi_dev);
+	struct lpi_gpio_state *state;
 	int ret = 0;
 	static DEFINE_RATELIMIT_STATE(rtl, 1 * HZ, 1);
+	if (lpi_dev == NULL)
+		return 0;
+	state = dev_get_drvdata(lpi_dev);
+
+	if (!lpi_dev)
+		return 0;
+	state = dev_get_drvdata(lpi_dev);
 
 	if (!lpi_dev_up) {
 		return 0;
@@ -406,7 +419,6 @@ slew_exit:
 			goto done;
 		}
 	}
-
 set_gpio:
 	pad->base = pad->gpio_base;
 	pad->offset = pad->gpio_offset;
@@ -924,7 +936,6 @@ int lpi_pinctrl_runtime_resume(struct device *dev)
 	}
 
 	pm_runtime_set_autosuspend_delay(dev, LPI_AUTO_SUSPEND_DELAY);
-
 exit:
 	mutex_unlock(&state->core_hw_vote_lock);
 	trace_printk("%s: exit\n", __func__);

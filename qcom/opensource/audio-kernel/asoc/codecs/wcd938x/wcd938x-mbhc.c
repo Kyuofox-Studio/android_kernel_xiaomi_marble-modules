@@ -34,7 +34,7 @@
 #define WCD938X_MBHC_GET_C1(c)          ((c & 0xC000) >> 14)
 #define WCD938X_MBHC_GET_X1(x)          (x & 0x3FFF)
 /* Z value compared in milliOhm */
-#define WCD938X_MBHC_IS_SECOND_RAMP_REQUIRED(z) ((z > 400000) || (z < 32000))
+#define WCD938X_MBHC_IS_SECOND_RAMP_REQUIRED(z) ((z) < 32000)
 #define WCD938X_MBHC_ZDET_CONST         (86 * 16384)
 #define WCD938X_MBHC_MOISTURE_RREF      R_24_KOHM
 
@@ -463,7 +463,6 @@ static void wcd938x_mbhc_zdet_ramp(struct snd_soc_component *component,
 			   WCD938X_ANA_MBHC_ZDET, 0x80, 0x00);
 
 	*zl = zdet;
-
 z_right:
 	if (!zr)
 		return;
@@ -576,7 +575,6 @@ static void wcd938x_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 		d1 = d1_a[3];
 	}
 	wcd938x_mbhc_zdet_ramp(component, zdet_param_ptr, &z1L, NULL, d1);
-
 left_ch_impedance:
 	if ((z1L == WCD938X_ZDET_FLOATING_IMPEDANCE) ||
 		(z1L > WCD938X_ZDET_VAL_100K)) {
@@ -787,7 +785,6 @@ static bool wcd938x_mbhc_get_moisture_status(struct wcd_mbhc *mbhc)
 	/* Read moisture comparator status */
 	ret = ((snd_soc_component_read(component, WCD938X_MBHC_NEW_FSM_STATUS)
 				& 0x20) ? 0 : 1);
-
 done:
 	return ret;
 
@@ -1040,7 +1037,6 @@ int wcd938x_mbhc_post_ssr_init(struct wcd938x_mbhc *mbhc,
 			__func__);
 		goto done;
 	}
-
 done:
 	return ret;
 }
@@ -1104,10 +1100,13 @@ int wcd938x_mbhc_init(struct wcd938x_mbhc **mbhc,
 	}
 
 	(*mbhc) = wcd938x_mbhc;
+
+#if !defined(CONFIG_TARGET_PRODUCT_ZIYI) && !defined(CONFIG_TARGET_PRODUCT_YUDI)
 	snd_soc_add_component_controls(component, impedance_detect_controls,
 				   ARRAY_SIZE(impedance_detect_controls));
 	snd_soc_add_component_controls(component, hph_type_detect_controls,
 				   ARRAY_SIZE(hph_type_detect_controls));
+#endif
 
 	return 0;
 err:

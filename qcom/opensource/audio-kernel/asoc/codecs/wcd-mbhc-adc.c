@@ -346,7 +346,6 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	} else {
 		pr_debug("%s: No Cross connection found\n", __func__);
 	}
-
 done:
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 0);
 	/* Set the MUX selection to Auto */
@@ -470,7 +469,6 @@ static bool wcd_mbhc_adc_check_for_spl_headset(struct wcd_mbhc *mbhc,
 
 	if (spl_hs)
 		pr_debug("%s: Detected special HS (%d)\n", __func__, spl_hs);
-
 exit:
 	pr_debug("%s: leave\n", __func__);
 	return spl_hs;
@@ -718,7 +716,6 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ADC_EN, 0);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_DETECTION_DONE, 1);
 	}
-
 correct_plug_type:
 	/*
 	 * Callback to disable BCS slow insertion detection
@@ -745,6 +742,9 @@ correct_plug_type:
 		}
 
 		msleep(180);
+		/* Allow sound card registration to finish during boot with a headset. */
+		if (!mbhc->mbhc_cfg->swap_gnd_mic && mbhc->mbhc_cfg->enable_usbc_analog)
+			msleep(200);
 		/*
 		 * Use ADC single mode to minimize the chance of missing out
 		 * btn press/release for HEADSET type during correct work.
@@ -896,7 +896,6 @@ correct_plug_type:
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_ISRC_EN, 1);
 		}
 	}
-
 report:
 	if (wcd_swch_level_remove(mbhc)) {
 		pr_debug("%s: Switch level is low\n", __func__);
@@ -909,6 +908,14 @@ report:
 
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ADC_MODE, 0);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ADC_EN, 0);
+
+#if defined(CONFIG_TARGET_PRODUCT_ZIYI) || defined(CONFIG_TARGET_PRODUCT_YUDI)
+	if (mbhc->hs_detect_work_stop) {
+		pr_debug("%s: stop requested: %d\n", __func__, mbhc->hs_detect_work_stop);
+		wcd_micbias_disable(mbhc);
+		goto exit;
+	}
+#endif
 
 	WCD_MBHC_RSC_LOCK(mbhc);
 	wcd_mbhc_find_plug_and_report(mbhc, plug_type);
@@ -924,6 +931,9 @@ enable_supply:
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_DETECTION_DONE, 1);
 	else
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_DETECTION_DONE, 0);
+
+	if (plug_type == MBHC_PLUG_TYPE_HEADSET)
+		mbhc->micbias_enable = true;
 
 	if (mbhc->mbhc_cb->bcs_enable)
 		mbhc->mbhc_cb->bcs_enable(mbhc, true);
@@ -1133,7 +1143,11 @@ static irqreturn_t wcd_mbhc_adc_hs_ins_irq(int irq, void *data)
 		 * check clamp for 120ms but at 30ms chunks to leave
 		 * room for other interrupts to be processed
 		 */
+#ifdef CONFIG_TARGET_PRODUCT_ZIYI
+		usleep_range(45000, 45100);
+#else
 		usleep_range(30000, 30100);
+#endif
 	} while (--clamp_retry);
 
 	WCD_MBHC_RSC_LOCK(mbhc);

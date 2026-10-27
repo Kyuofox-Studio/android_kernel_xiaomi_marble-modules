@@ -22,6 +22,9 @@
 #include <asoc/msm-cdc-supply.h>
 #include <bindings/audio-codec-port-types.h>
 #include <linux/qti-regmap-debugfs.h>
+#ifdef CONFIG_MMHARDWARE_DETECTION
+#include <linux/mmhardware_sysfs.h>
+#endif
 
 #include "wcd938x-registers.h"
 #include "wcd938x.h"
@@ -298,6 +301,10 @@ static int wcd938x_init_reg(struct snd_soc_component *component)
 	snd_soc_component_update_bits(component,
 				WCD938X_HPH_SURGE_HPHLR_SURGE_EN, 0xC0, 0xC0);
 
+#ifdef CONFIG_TARGET_PRODUCT_INGRES
+	snd_soc_component_update_bits(component, WCD938X_MICB2_TEST_CTL_3, 0x80, 0x80);
+#endif
+
 	return 0;
 }
 
@@ -412,7 +419,6 @@ static int wcd938x_parse_port_params(struct device *dev,
 	}
 	kfree(dt_array);
 	return 0;
-
 err_pdata_fail:
 	kfree(dt_array);
 err_alloc:
@@ -496,7 +502,6 @@ static int wcd938x_parse_port_mapping(struct device *dev,
 	*num_ports = port_num;
 	kfree(dt_array);
 	return 0;
-
 err_pdata_fail:
 	kfree(dt_array);
 err_alloc:
@@ -2147,7 +2152,6 @@ int wcd938x_micbias_control(struct snd_soc_component *component,
 		"%s: micb_num:%d, micb_ref: %d, pullup_ref: %d\n",
 		__func__, micb_num, wcd938x->micb_ref[micb_index],
 		wcd938x->pullup_ref[micb_index]);
-
 done:
 	mutex_unlock(&wcd938x->micb_lock);
 	return ret;
@@ -2582,7 +2586,6 @@ int wcd938x_codec_force_enable_micbias_v2(struct snd_soc_component *component,
 		wcd938x_wakeup(wcd938x_priv, false);
 		break;
 	}
-
 done:
 	return ret;
 }
@@ -2621,7 +2624,6 @@ static inline int wcd938x_tx_path_get(const char *wname,
 	if (ret < 0)
 		pr_err("%s: Invalid tx path = %s\n",
 			__func__, w_name);
-
 err:
 	kfree(w_name);
 	return ret;
@@ -3985,7 +3987,6 @@ static int wcd938x_set_micbias_data(struct wcd938x_priv *wcd938x,
 			   vout_ctl_3);
 	regmap_update_bits(wcd938x->regmap, WCD938X_ANA_MICB4, 0x3F,
 			   vout_ctl_4);
-
 done:
 	return rc;
 }
@@ -4102,11 +4103,13 @@ static int wcd938x_soc_codec_probe(struct snd_soc_component *component)
 			return ret;
 		}
 	}
+/* register codec hardware */
+#ifdef CONFIG_MMHARDWARE_DETECTION
+	register_kobj_under_mmsysfs(MM_HW_CODEC, MM_HARDWARE_SYSFS_CODEC_FOLDER);
+#endif
 	return ret;
-
 err_hwdep:
 	wcd938x->fw_data = NULL;
-
 err:
 	return ret;
 }
@@ -4631,7 +4634,6 @@ static int wcd938x_probe(struct platform_device *pdev)
 
 	return component_master_add_with_match(dev,
 					&wcd938x_comp_ops, match);
-
 err_lock_init:
 	mutex_destroy(&wcd938x->micb_lock);
 	mutex_destroy(&wcd938x->wakeup_lock);

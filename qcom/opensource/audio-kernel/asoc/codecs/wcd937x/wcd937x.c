@@ -326,7 +326,6 @@ static int wcd937x_parse_port_params(struct device *dev,
 	}
 	kfree(dt_array);
 	return 0;
-
 err_pdata_fail:
 	kfree(dt_array);
 err_alloc:
@@ -409,7 +408,6 @@ static int wcd937x_parse_port_mapping(struct device *dev,
 	*num_ports = port_num;
 	kfree(dt_array);
 	return 0;
-
 err_pdata_fail:
 	kfree(dt_array);
 err:
@@ -1164,6 +1162,16 @@ static int wcd937x_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 			snd_soc_component_update_bits(component,
 					WCD937X_DIGITAL_PDM_WD_CTL0,
 					0x07, 0x00);
+		//case 05657117 05669963 CR-30628852 BEGAIN
+		usleep_range(10000, 10100);
+		/* disable EAR CnP FSM */
+		snd_soc_component_update_bits(component, WCD937X_EAR_EAR_EN_REG, 0x02, 0x00);
+		/* toggle EAR PA to let PA control registers take effect */
+		snd_soc_component_update_bits(component, WCD937X_ANA_EAR, 0x80, 0x80);
+		snd_soc_component_update_bits(component, WCD937X_ANA_EAR, 0x80, 0x00);
+		/* enable EAR CnP FSM */
+		snd_soc_component_update_bits(component, WCD937X_EAR_EAR_EN_REG, 0x02, 0x02);
+		//case 05657117 05669963 CR-30628852 END
 		break;
 	};
 	return ret;
@@ -2957,7 +2965,6 @@ static int wcd937x_set_micbias_data(struct wcd937x_priv *wcd937x,
 			   vout_ctl_2);
 	regmap_update_bits(wcd937x->regmap, WCD937X_ANA_MICB3, 0x3F,
 			   vout_ctl_3);
-
 done:
 	return rc;
 }
@@ -3070,10 +3077,8 @@ static int wcd937x_soc_codec_probe(struct snd_soc_component *component)
 		}
 	}
 	return ret;
-
 err_hwdep:
 	wcd937x->fw_data = NULL;
-
 err:
 	return ret;
 }

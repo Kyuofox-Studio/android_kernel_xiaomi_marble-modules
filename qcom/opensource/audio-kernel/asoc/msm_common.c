@@ -43,7 +43,7 @@ struct snd_card_pdata {
 
 #define MAX_CODEC_DAI 8
 #define TDM_SLOT_WIDTH_BITS 32
-#define TDM_MAX_SLOTS 8
+#define TDM_MAX_SLOTS 4
 #define MI2S_NUM_CHANNELS 2
 
 #define SAMPLING_RATE_44P1KHZ   44100
@@ -150,7 +150,6 @@ static int aud_dev_sysfs_init(struct msm_common_pdata *pdata)
 	}
 
 	return ret;
-
 fail_create_file:
 	kobject_put(&pdata->aud_dev_kobj);
 done:
@@ -215,7 +214,6 @@ int snd_card_sysfs_init(void)
 	}
 
 	return ret;
-
 fail_create_file:
 	kobject_put(&snd_card_pdata->snd_card_kobj);
 done:
@@ -412,7 +410,7 @@ int msm_common_snd_hw_params(struct snd_pcm_substream *substream,
 
 				intf_clk_cfg.clk_id = ret;
 				intf_clk_cfg.clk_freq_in_hz = rate * slot_width * slots;
-				intf_clk_cfg.clk_attri = pdata->tdm_clk_attribute[index];
+				intf_clk_cfg.clk_attri = CLOCK_ATTRIBUTE_INVERT_COUPLE_NO;
 				intf_clk_cfg.clk_root = 0;
 
 				if (pdata->is_audio_hw_vote_required[index]  &&
@@ -1106,13 +1104,11 @@ int msm_common_dai_link_init(struct snd_soc_pcm_runtime *rtd)
 		if (!register_pm_qos_latency_controls(rtd))
 			kregister_pm_qos_latency_controls = true;
 	}
-
 free_mixer_str:
 	if (mixer_str) {
 		kfree(mixer_str);
 		mixer_str = NULL;
 	}
-
 free_backend:
 	if (backend_name) {
 		kfree(backend_name);

@@ -85,6 +85,14 @@ struct macro_ops {
 
 typedef int (*rsc_clk_cb_t)(struct device *dev, u16 event);
 
+#if IS_REACHABLE(CONFIG_LPASS_CDC_TX_MACRO)
+void lpass_cdc_tx_macro_mute_hs(void);
+#else
+static inline void lpass_cdc_tx_macro_mute_hs(void)
+{
+}
+#endif
+
 #if IS_ENABLED(CONFIG_SND_SOC_LPASS_CDC)
 int lpass_cdc_register_res_clk(struct device *dev, rsc_clk_cb_t cb);
 void lpass_cdc_unregister_res_clk(struct device *dev);
